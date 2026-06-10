@@ -74,6 +74,4 @@ python main.py
 
 ```
 
-Aplikasi CLI StoryForge akan langsung berjalan dan siap digunakan.
-
-```
+Apk CLI StoryForge akan langsung berjalan dan siap digunakan.
