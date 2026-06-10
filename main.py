@@ -1,6 +1,7 @@
 # File: main.py
 import user
 import story
+import character
 
 def main_menu():
     session_user = None
@@ -36,8 +37,8 @@ def main_menu():
             print("--- MODE PENULIS ---")
             print("4. Buat Cerita Baru")
             print("5. Tambah Bab (Draft/Publish)")
-            print("6. Lihat Daftar Karyaku (Draft & Published)")
-            print("7. Publish Bab Draft")
+            print("6. Kelola Lore Karakter")
+            print("7. Lihat Daftar Karyaku")
             print("9. Logout")
             
             pilihan = input("Pilih menu: ")
@@ -53,9 +54,9 @@ def main_menu():
             elif pilihan == '5':
                 story.buat_chapter(session_user['user_id'])
             elif pilihan == '6':
-                story.lihat_story_ku(session_user['user_id'])
+                karakter.kelola_karakter(session_user['user_id'])
             elif pilihan == '7':
-                story.publish_chapter_draft()
+                story.lihat_story_ku(session_user['user_id'])
             elif pilihan == '9':
                 session_user = None
                 print("Berhasil keluar akun.")

@@ -1,0 +1,201 @@
+CREATE DATABASE fiction_platform;
+
+-- TABEL UTAMA
+CREATE TABLE `user` (
+    user_id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    coin_balance INT DEFAULT 0,
+    author_balance INT DEFAULT 0
+);
+
+CREATE TABLE genres (
+    genre_id INT AUTO_INCREMENT PRIMARY KEY,
+    genre_name VARCHAR(50) NOT NULL UNIQUE
+);
+
+CREATE TABLE story (
+    story_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    title VARCHAR(150) NOT NULL,
+    synopsis TEXT,
+    genre_id INT,
+    tags VARCHAR(255),
+    status ENUM('draft', 'published') DEFAULT 'draft',
+    FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (genre_id) REFERENCES genres(genre_id) ON DELETE SET NULL
+);
+
+CREATE TABLE chapter (
+    chapter_id INT AUTO_INCREMENT PRIMARY KEY,
+    story_id INT,
+    chapter_number INT NOT NULL,
+    chapter_title VARCHAR(150) NOT NULL,
+    is_premium BOOLEAN DEFAULT FALSE,
+    coin_cost INT DEFAULT 0,
+    status ENUM('draft', 'published') DEFAULT 'draft',
+    FOREIGN KEY (story_id) REFERENCES story(story_id) ON DELETE CASCADE
+);
+
+CREATE TABLE `character` (
+    character_id INT AUTO_INCREMENT PRIMARY KEY,
+    story_id INT,
+    character_name VARCHAR(100) NOT NULL,
+    FOREIGN KEY (story_id) REFERENCES story(story_id) ON DELETE CASCADE
+);
+
+-- TABEL TRANSAKSI KEUANGAN
+CREATE TABLE purchase_chapter (
+    purchase_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    chapter_id INT,
+    coins_spent INT NOT NULL,
+    purchase_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (chapter_id) REFERENCES chapter(chapter_id) ON DELETE CASCADE
+);
+
+CREATE TABLE withdrawal (
+    withdrawal_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    amount INT NOT NULL,
+    status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE
+);
+
+CREATE TABLE transaction_topup (
+    topup_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    amount_paid INT NOT NULL,
+    coins_gained INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE
+);
+
+-- TABEL INTERAKSI PEMBACA
+CREATE TABLE read_history (
+    history_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    chapter_id INT,
+    read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (chapter_id) REFERENCES chapter(chapter_id) ON DELETE CASCADE
+);
+
+CREATE TABLE bookmark (
+    bookmark_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    story_id INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (story_id) REFERENCES story(story_id) ON DELETE CASCADE
+);
+
+CREATE TABLE library (
+    library_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    story_id INT,
+    last_read_chapter_id INT NULL,
+    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (story_id) REFERENCES story(story_id) ON DELETE CASCADE,
+    FOREIGN KEY (last_read_chapter_id) REFERENCES chapter(chapter_id) ON DELETE SET NULL
+);
+
+CREATE TABLE votes (
+    vote_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    chapter_id INT,
+    voted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_vote (user_id, chapter_id),
+    FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (chapter_id) REFERENCES chapter(chapter_id) ON DELETE CASCADE
+);
+
+-- TABEL FITUR TAMBAHAN WATTPAD
+CREATE TABLE subscriptions (
+    sub_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    expiry_date DATETIME NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE
+);
+
+CREATE TABLE contest_submissions (
+    submission_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    story_id INT,
+    status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+    submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (story_id) REFERENCES story(story_id) ON DELETE CASCADE
+);
+
+DELIMITER $$
+
+CREATE TRIGGER after_purchase_chapter_insert
+AFTER INSERT ON purchase_chapter
+FOR EACH ROW
+BEGIN
+    UPDATE `user` 
+    SET coin_balance = coin_balance - NEW.coins_spent 
+    WHERE user_id = NEW.user_id;
+
+    UPDATE `user` 
+    SET author_balance = author_balance + NEW.coins_spent 
+    WHERE user_id = (
+        SELECT s.user_id 
+        FROM story s 
+        JOIN chapter c ON s.story_id = c.story_id 
+        WHERE c.chapter_id = NEW.chapter_id
+    );
+END $$
+
+DELIMITER ;
+
+CREATE VIEW author_dashboard AS
+SELECT 
+    s.user_id AS author_id,
+    s.story_id,
+    s.title AS story_title,
+    COUNT(DISTINCT c.chapter_id) AS total_chapters,
+    COUNT(pc.purchase_id) AS total_chapters_sold,
+    COALESCE(SUM(pc.coins_spent), 0) AS total_revenue_coins
+FROM story s
+LEFT JOIN chapter c ON s.story_id = c.story_id
+LEFT JOIN purchase_chapter pc ON c.chapter_id = pc.chapter_id
+GROUP BY s.story_id;
+
+-- MENGISI DATA DUMMY
+INSERT INTO genres (genre_id, genre_name) VALUES
+(1, 'Action and Thriller'),
+(2, 'Culture and Identity'),
+(3, 'Fantasy'),
+(4, 'Historical'),
+(5, 'Horror'),
+(6, 'LGBTQ+'),
+(7, 'Mystery'),
+(8, 'Paranormal'),
+(9, 'Romance'),
+(10, 'Science Fiction'),
+(11, 'Social Themes');
+
+INSERT INTO `user` (username, email, password, coin_balance, author_balance) VALUES
+('penulis_pro', 'penulis@pro.com', '123', 50, 500),
+('pembaca_kaya', 'pembaca@kaya.com', '123', 1000, 0);
+
+INSERT INTO story (user_id, title, synopsis, genre_id, tags, status) VALUES
+(1, 'Laut Bercerita', 'Kisah aktivis mahasiswa di era Orde Baru.', 4, 'Sejarah, Orde Baru, 98, ORINE, JKT48', 'published'),
+(1, 'Sinyal Penjaga Kota Digital', 'Misteri hilangnya data penting.', 7, 'Cyber, Misteri', 'published');
+
+INSERT INTO chapter (story_id, chapter_number, chapter_title, is_premium, coin_cost, status) VALUES
+(1, 1, 'Biru Laut', FALSE, 0, 'published'),
+(1, 2, 'Pengkhianatan', TRUE, 15, 'published'),
+(2, 1, 'Awal Perjalanan', FALSE, 0, 'published');
+
+INSERT INTO transaction_topup (user_id, amount_paid, coins_gained) VALUES
+(2, 100000, 1000);
+
+INSERT INTO purchase_chapter (user_id, chapter_id, coins_spent) VALUES
+(2, 2, 15);

@@ -8,19 +8,41 @@ def buat_story(user_id):
     title = input("Judul Cerita: ")
     synopsis = input("Sinopsis: ")
     
-    # 1=Fantasy, 2=Romance, 3=Thriller (Sesuai seed data di schema.sql)
-    genre_id = input("ID Genre (1/2/3): ") 
-    tags = input("Tags (pisahkan dengan koma): ")
-    
     conn = get_mysql_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(dictionary=True)
+    
     try:
+        # Langkah 1: Tarik data 11 Kategori Genre dari tabel MySQL
+        cursor.execute("SELECT * FROM genres ORDER BY genre_id ASC")
+        daftar_genre = cursor.fetchall()
+        
+        if not daftar_genre:
+            print("Peringatan: Tabel genre di database kosong. Harap jalankan ulang query SQL pengisian genre.")
+            cursor.close()
+            conn.close()
+            return
+            
+        print("\n--- PILIH GENRE UTAMA (Sesuai Kategori Wattpad) ---")
+        for g in daftar_genre:
+            print(f"[{g['genre_id']}] {g['genre_name']}")
+            
+        # Langkah 2: User memasukkan nomor berdasarkan daftar yang tampil
+        genre_id_input = input("\nPilih Nomor Genre (misal: 4 untuk Historical): ")
+        
+        print("\n--- KATEGORI & TAGS TAMBAHAN ---")
+        tags_bebas = input("Tags (pisahkan dengan koma, misal: ORINE, JKT48, 98): ")
+        
+        # Langkah 3: Simpan data ke tabel story
         sql = "INSERT INTO story (user_id, title, synopsis, genre_id, tags, status) VALUES (%s, %s, %s, %s, %s, 'draft')"
-        cursor.execute(sql, (user_id, title, synopsis, genre_id, tags))
+        cursor.execute(sql, (user_id, title, synopsis, int(genre_id_input), tags_bebas))
         conn.commit()
-        print("📝 Cerita berhasil dibuat dan masuk ke Draft!")
+        
+        print("\nCerita berhasil dibuat dan masuk ke folder Draft!")
+        
     except mysql.connector.Error as err:
-        print(f"❌ Gagal: {err}")
+        print(f"\nGagal menyimpan cerita: {err}")
+    except ValueError:
+        print("\nInput nomor genre tidak valid. Harap masukkan angka.")
     finally:
         cursor.close()
         conn.close()
@@ -85,9 +107,9 @@ def buat_chapter(user_id):
             ]
         }
         chapters_content.insert_one(dokumen_mongodb)
-        print(f"🎉 Bab berhasil ditambahkan dengan status [{status_db.upper()}]!")
+        print(f"Bab berhasil ditambahkan dengan status [{status_db.upper()}]!")
     except Exception as err:
-        print(f"❌ Gagal: {err}")
+        print(f"Gagal: {err}")
     finally:
         cursor.close()
         conn.close()
@@ -132,43 +154,69 @@ def baca_chapter(user_id):
     conn = get_mysql_connection()
     cursor = conn.cursor(dictionary=True)
     
-    # 1. Cek keamanan bab di MySQL
     cursor.execute("SELECT * FROM chapter WHERE chapter_id = %s AND status = 'published'", (chapter_id,))
     chapter_meta = cursor.fetchone()
 
     if not chapter_meta:
         print("Bab tidak ditemukan atau masih berstatus Draft.")
-        cursor.close(); conn.close()
+        cursor.close()
+        conn.close()
         return
 
-    # 2. Cek pembayaran jika premium
     if chapter_meta['is_premium']:
         cursor.execute("SELECT * FROM purchase_chapter WHERE user_id = %s AND chapter_id = %s", (user_id, chapter_id))
         if not cursor.fetchone():
             print(f"Bab ini Premium! Silakan beli seharga {chapter_meta['coin_cost']} Koin.")
-            cursor.close(); conn.close()
+            cursor.close()
+            conn.close()
             return
 
-    # 3. Otomatis catat ke read_history
     try:
         cursor.execute("INSERT INTO read_history (user_id, chapter_id) VALUES (%s, %s)", (user_id, chapter_id))
         conn.commit()
     except:
-        pass # Abaikan jika gagal mencatat log
+        pass 
 
     cursor.close()
     conn.close()
 
-    # 4. Tarik Teks dari MongoDB
     mongo_db = get_mongo_database()
     content_data = mongo_db["chapters_content"].find_one({"chapter_id": int(chapter_id)})
 
     if content_data:
-        print(f"\n📖 [ {chapter_meta['chapter_title'].upper()} ] 📖")
-        print("--------------------------------------------------")
+        print(f"\n[ {chapter_meta['chapter_title'].upper()} ]")
+        print("-" * 50)
         for p in content_data['paragraf']:
             print(p['teks'])
-        print("--------------------------------------------------")
-        print("Selesai membaca bab ini.")
+        print("-" * 50)
+        
+        # LOGIKA SIMULASI POP-UP LORE KARAKTER
+        while True:
+            print("\nOpsi Pembaca:")
+            print("[Ketik nama karakter] -> Untuk melihat Info Detail (Pop-Up Lore)")
+            print("[Ketik 'X'] -> Selesai membaca dan keluar")
+            opsi = input("Masukkan pilihan: ").strip().lower()
+
+            if opsi == 'x':
+                print("Keluar dari mode membaca.")
+                break
+            elif opsi != '':
+                # Mencari lore karakter di MongoDB berdasarkan nama dan story_id bab ini
+                lore = mongo_db["character_lores"].find_one({
+                    "story_id": chapter_meta['story_id'],
+                    "character_name": opsi
+                })
+
+                if lore:
+                    print("\n" + "=" * 40)
+                    print(f" POP-UP INFO: {lore['character_name'].upper()}")
+                    print("=" * 40)
+                    for key, value in lore.items():
+                        if key not in ["_id", "character_id", "story_id", "character_name"]:
+                            print(f" - {key.title()}: {value}")
+                    print("=" * 40)
+                    input("(Tekan Enter untuk menutup pop-up dan lanjut membaca)")
+                else:
+                    print(f"Karakter dengan nama '{opsi}' tidak ditemukan di sistem lore.")
     else:
         print("Teks cerita tidak ditemukan di MongoDB.")
