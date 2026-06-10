@@ -1,125 +1,64 @@
-from db import get_mysql_connection, get_mongo_database
-import mysql.connector
-
-def register():
-    print("\n=== REGISTER ===")
-    username = input("Username: ")
-    email = input("Email: ")
-    password = input("Password: ")
-    role = input("Role (author/reader): ")
-    
-    conn = get_mysql_connection()
-    cursor = conn.cursor()
-    try:
-        sql = "INSERT INTO `user` (username, email, password, role) VALUES (%s, %s, %s, %s)"
-        cursor.execute(sql, (username, email, password, role))
-        conn.commit()
-        print("Registrasi berhasil! Silakan login.")
-    except mysql.connector.Error as err:
-        print(f"Error: {err}")
-    finally:
-        cursor.close()
-        conn.close()
-
-def login():
-    print("\n=== LOGIN ===")
-    email = input("Email: ")
-    password = input("Password: ")
-    
-    conn = get_mysql_connection()
-    cursor = conn.cursor(dictionary=True)
-    sql = "SELECT * FROM `user` WHERE email = %s AND password = %s"
-    cursor.execute(sql, (email, password))
-    user = cursor.fetchone()
-    
-    cursor.close()
-    conn.close()
-    
-    if user:
-        print(f"\nSelamat datang, {user['username']}!")
-        return user
-    else:
-        print("Email atau password salah.")
-        return None
-
-def create_story(user_id):
-    print("\n=== BUAT CERITA BARU ===")
-    title = input("Judul Cerita: ")
-    synopsis = input("Sinopsis: ")
-    genre = input("Genre (romance/fantasy/thriller/horror/slice_of_life/other): ")
-    
-    conn = get_mysql_connection()
-    cursor = conn.cursor()
-    sql = "INSERT INTO story (user_id, title, synopsis, genre, status) VALUES (%s, %s, %s, %s, 'draft')"
-    cursor.execute(sql, (user_id, title, synopsis, genre))
-    conn.commit()
-    print("Cerita berhasil dibuat sebagai Draft!")
-    cursor.close()
-    conn.close()
-
-def add_chapter(user_id):
-    print("\n=== TAMBAH BAB (HYBRID) ===")
-    story_id = input("Masukkan ID Cerita milikmu: ")
-    chapter_num = input("Bab Ke-Berapa: ")
-    chapter_title = input("Judul Bab: ")
-    is_premium = input("Berbayar? (1 untuk Ya, 0 untuk Tidak): ")
-    coin_cost = input("Harga Koin (0 jika gratis): ")
-    isi_teks = input("Ketik isi paragraf cerita di sini:\n")
-    
-    # STEP 1: Masukkan metadata ke MySQL
-    conn = get_mysql_connection()
-    cursor = conn.cursor()
-    sql_mysql = """INSERT INTO chapter (story_id, chapter_number, chapter_title, is_premium, coin_cost, status) 
-                   VALUES (%s, %s, %s, %s, %s, 'published')"""
-    cursor.execute(sql_mysql, (story_id, chapter_num, chapter_title, is_premium, coin_cost))
-    conn.commit()
-    
-    # Ambil ID chapter yang baru saja dibuat di MySQL
-    new_chapter_id = cursor.lastrowid 
-    cursor.close()
-    conn.close()
-    
-    # STEP 2: Masukkan teks konten ke MongoDB
-    mongo_db = get_mongo_database()
-    chapters_content = mongo_db["chapters_content"]
-    
-    dokumen_mongodb = {
-        "chapter_id": new_chapter_id,  # Ini jembatan penghubungnya!
-        "paragraf": [
-            {
-                "urutan_paragraf": 1,
-                "teks": isi_teks,
-                "komentar_inline": []
-            }
-        ]
-    }
-    chapters_content.insert_one(dokumen_mongodb)
-    print("Bab berhasil ditambahkan secara Hybrid (Metadata di MySQL, Teks di MongoDB)!")
+# File: main.py
+import user
+import story
 
 def main_menu():
-    current_user = None
+    session_user = None
+    
     while True:
-        print("\n================================")
-        print("   STORYFORGE CLI INTERFACE")
-        print("================================")
-        if not current_user:
+        print("\n==========================================")
+        print(" STORYFORGE: PLATFORM FIKSI ALL-IN-ONE ")
+        print("==========================================")
+        
+        # TAMPILAN JIKA BELUM LOGIN
+        if not session_user:
             print("1. Register")
             print("2. Login")
-            print("0. Keluar")
+            print("0. Keluar Aplikasi")
             pilihan = input("Pilih menu: ")
             
-            if pilihan == '1': register()
-            elif pilihan == '2': current_user = login()
-            elif pilihan == '0': break
+            if pilihan == '1': 
+                user.register()
+            elif pilihan == '2': 
+                session_user = user.login()
+            elif pilihan == '0': 
+                print("Terima kasih telah menggunakan StoryForge!")
+                break
+                
+        # TAMPILAN JIKA SUDAH LOGIN
         else:
-            print("1. Buat Cerita Baru")
-            print("2. Tambah Bab (Hybrid)")
+            print(f"Halo, {session_user['username']}! Selamat datang di Beranda.")
+            print("--- PROFIL & AKUN ---")
+            print("1. Lihat Profil & Dompet Koin")
+            print("--- MODE PEMBACA ---")
+            print("2. Eksplorasi Cerita (Published)")
+            print("3. Baca Bab Cerita")
+            print("--- MODE PENULIS ---")
+            print("4. Buat Cerita Baru")
+            print("5. Tambah Bab (Draft/Publish)")
+            print("6. Lihat Daftar Karyaku (Draft & Published)")
+            print("7. Publish Bab Draft")
             print("9. Logout")
+            
             pilihan = input("Pilih menu: ")
             
-            if pilihan == '1': create_story(current_user['user_id'])
-            elif pilihan == '2': add_chapter(current_user['user_id'])
-            elif pilihan == '9': current_user = None
+            if pilihan == '1':
+                user.lihat_profil(session_user)
+            elif pilihan == '2':
+                story.lihat_semua_published()
+            elif pilihan == '3':
+                story.baca_chapter(session_user['user_id'])
+            elif pilihan == '4':
+                story.buat_story(session_user['user_id'])
+            elif pilihan == '5':
+                story.buat_chapter(session_user['user_id'])
+            elif pilihan == '6':
+                story.lihat_story_ku(session_user['user_id'])
+            elif pilihan == '7':
+                story.publish_chapter_draft()
+            elif pilihan == '9':
+                session_user = None
+                print("Berhasil keluar akun.")
 
 if __name__ == "__main__":
     main_menu()
