@@ -5,34 +5,37 @@ from db import get_mysql_connection, get_mongo_database
 # FITUR SISI PENULIS
 def buat_story(user_id):
     print("\n=== STUDIO: BUAT CERITA BARU ===")
+    print("(Ketik '0' pada Judul untuk membatalkan)")
     title = input("Judul Cerita: ")
+    
+    if title == '0':
+        print("Dibatalkan. Kembali ke menu utama.")
+        return
+        
     synopsis = input("Sinopsis: ")
     
     conn = get_mysql_connection()
     cursor = conn.cursor(dictionary=True)
     
     try:
-        # Langkah 1: Tarik data 11 Kategori Genre dari tabel MySQL
         cursor.execute("SELECT * FROM genres ORDER BY genre_id ASC")
         daftar_genre = cursor.fetchall()
         
         if not daftar_genre:
-            print("Peringatan: Tabel genre di database kosong. Harap jalankan ulang query SQL pengisian genre.")
+            print("Peringatan: Tabel genre di database kosong.")
             cursor.close()
             conn.close()
             return
             
-        print("\n--- PILIH GENRE UTAMA (Sesuai Kategori Wattpad) ---")
+        print("\n--- PILIH GENRE UTAMA ---")
         for g in daftar_genre:
             print(f"[{g['genre_id']}] {g['genre_name']}")
             
-        # Langkah 2: User memasukkan nomor berdasarkan daftar yang tampil
-        genre_id_input = input("\nPilih Nomor Genre (misal: 4 untuk Historical): ")
+        genre_id_input = input("\nPilih Nomor Genre: ")
         
         print("\n--- KATEGORI & TAGS TAMBAHAN ---")
-        tags_bebas = input("Tags (pisahkan dengan koma, misal: ORINE, JKT48, 98): ")
+        tags_bebas = input("Tags (pisahkan dengan koma): ")
         
-        # Langkah 3: Simpan data ke tabel story
         sql = "INSERT INTO story (user_id, title, synopsis, genre_id, tags, status) VALUES (%s, %s, %s, %s, %s, 'draft')"
         cursor.execute(sql, (user_id, title, synopsis, int(genre_id_input), tags_bebas))
         conn.commit()
@@ -43,6 +46,67 @@ def buat_story(user_id):
         print(f"\nGagal menyimpan cerita: {err}")
     except ValueError:
         print("\nInput nomor genre tidak valid. Harap masukkan angka.")
+    finally:
+        cursor.close()
+        conn.close()
+
+def buat_chapter(user_id):
+    print("\n=== STUDIO: TAMBAH BAB BARU (HYBRID) ===")
+    print("(Ketik '0' pada ID Cerita untuk membatalkan)")
+    story_id = input("Masukkan ID Cerita milikmu: ")
+    
+    if story_id == '0':
+        print("Dibatalkan. Kembali ke menu utama.")
+        return
+    
+    conn = get_mysql_connection()
+    cursor = conn.cursor()
+    
+    # VALIDASI KEAMANAN: Cek apakah cerita ini benar milik user yang sedang login
+    try:
+        cursor.execute("SELECT story_id FROM story WHERE story_id = %s AND user_id = %s", (story_id, user_id))
+        cek_milik = cursor.fetchone()
+        
+        if not cek_milik:
+            print("Akses Ditolak: Cerita tidak ditemukan atau Anda bukan penulis cerita ini.")
+            cursor.close()
+            conn.close()
+            return
+            
+        chapter_num = input("Bab Ke-Berapa: ")
+        chapter_title = input("Judul Bab: ")
+        is_premium = input("Berbayar? (1 untuk Ya, 0 untuk Tidak): ")
+        coin_cost = input("Harga Koin (0 jika gratis): ")
+        status_input = input("Langsung Publish atau Simpan Draft? (p/d): ").lower()
+        
+        status_db = 'published' if status_input == 'p' else 'draft'
+        isi_teks = input("Ketik isi paragraf cerita di sini:\n")
+        
+        sql_mysql = """INSERT INTO chapter (story_id, chapter_number, chapter_title, is_premium, coin_cost, status) 
+                       VALUES (%s, %s, %s, %s, %s, %s)"""
+        cursor.execute(sql_mysql, (story_id, chapter_num, chapter_title, is_premium, coin_cost, status_db))
+        conn.commit()
+        
+        new_chapter_id = cursor.lastrowid 
+        
+        mongo_db = get_mongo_database()
+        chapters_content = mongo_db["chapters_content"]
+        
+        dokumen_mongodb = {
+            "chapter_id": new_chapter_id,
+            "paragraf": [
+                {
+                    "urutan_paragraf": 1,
+                    "teks": isi_teks,
+                    "komentar_inline": []
+                }
+            ]
+        }
+        chapters_content.insert_one(dokumen_mongodb)
+        print(f"Bab berhasil ditambahkan dengan status [{status_db.upper()}]!")
+        
+    except Exception as err:
+        print(f"Gagal: {err}")
     finally:
         cursor.close()
         conn.close()
