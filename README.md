@@ -10,7 +10,7 @@ StoryForge/
 ├── main.py             # Entry point aplikasi dan sistem routing menu utama
 ├── user.py             # Modul autentikasi (Register/Login) dan manajemen profil
 ├── story.py            # Modul manajemen karya (draft/publish) dan mesin pembacaan
-├── karakter.py         # Modul interaksi lore karakter dengan skema dinamis
+├── character.py         # Modul interaksi lore karakter dengan skema dinamis
 ├── query_sql.txt       # DDL Skema relasional, Trigger, View, dan data awal
 └── README.md           # Dokumentasi cara penggunaan
 
