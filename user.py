@@ -4,9 +4,14 @@ from db import get_mysql_connection
 def register():
     print("\n=== DAFTAR AKUN BARU ===")
 
-    username = input("Username : ")
-    email = input("Email    : ")
-    password = input("Password : ")
+    username = input("Username : ").strip()
+    email = input("Email    : ").strip()
+    password = input("Password : ").strip()
+
+    # VALIDASI INPUT KOSONG
+    if not username or not email or not password:
+        print("GAGAL: Username, Email, dan Password tidak boleh dikosongkan!")
+        return
 
     conn = get_mysql_connection()
     cursor = conn.cursor(dictionary=True)
@@ -38,8 +43,13 @@ def register():
 def login():
     print("\n=== MASUK APLIKASI ===")
 
-    email = input("Email    : ")
-    password = input("Password : ")
+    email = input("Email    : ").strip()
+    password = input("Password : ").strip()
+
+    # VALIDASI INPUT KOSONG
+    if not email or not password:
+        print("GAGAL: Email dan Password tidak boleh dikosongkan!")
+        return
 
     conn = get_mysql_connection()
     cursor = conn.cursor(dictionary=True)

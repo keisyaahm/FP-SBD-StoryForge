@@ -2,9 +2,13 @@
 import user
 import story
 import character
+import transaction
+
+# Mendefinisikan session_user di level global agar bisa diakses semua fungsi
+session_user = None
 
 def main_menu():
-    session_user = None
+    global session_user # Memberitahu Python bahwa kita menggunakan variabel global di atas
     
     while True:
         print("\n==========================================")
@@ -39,6 +43,8 @@ def main_menu():
             print("5. Tambah Bab (Draft/Publish)")
             print("6. Kelola Lore Karakter")
             print("7. Lihat Daftar Karyaku")
+            print("--- KEUANGAN & TRANSAKSI ---")
+            print("8. Menu Transaksi (Top-Up, Beli Bab Premium, Tarik Saldo)")
             print("9. Logout")
             
             pilihan = input("Pilih menu: ")
@@ -54,9 +60,11 @@ def main_menu():
             elif pilihan == '5':
                 story.buat_chapter(session_user['user_id'])
             elif pilihan == '6':
-                karakter.kelola_karakter(session_user['user_id'])
+                character.menu_karakter(session_user['user_id'])
             elif pilihan == '7':
                 story.lihat_story_ku(session_user['user_id'])
+            elif pilihan == '8':
+                transaction.menu_transaksi(session_user['user_id'])
             elif pilihan == '9':
                 session_user = None
                 print("Berhasil keluar akun.")
