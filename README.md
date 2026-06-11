@@ -1,63 +1,71 @@
 # StoryForge - Platform Fiksi All-in-One
 
-Aplikasi antarmuka baris perintah (CLI) berbasis Python untuk platform penulisan dan pembacaan fiksi. Proyek ini menerapkan Hybrid Database yang menggabungkan MySQL (untuk keamanan transaksi dan relasi data) dan MongoDB (untuk fleksibilitas skema teks naskah dan lore karakter).
+StoryForge adalah platform penulisan dan pembacaan fiksi berbasis CLI (Command Line Interface). Aplikasi ini menggunakan arsitektur Hybrid Database yang mengintegrasikan MySQL untuk integritas data transaksi dan MongoDB untuk fleksibilitas penyimpanan konten teks serta data lore karakter yang dinamis.
 
 ## Struktur Proyek
 
 ```text
 StoryForge/
-├── db.py               # Konfigurasi koneksi ganda ke MySQL dan MongoDB
-├── main.py             # Entry point aplikasi dan sistem routing menu utama
-├── user.py             # Modul autentikasi (Register/Login) dan manajemen profil
-├── story.py            # Modul manajemen karya (draft/publish) dan mesin pembacaan
-├── character.py         # Modul interaksi lore karakter dengan skema dinamis
-├── query_sql.txt       # DDL Skema relasional, Trigger, View, dan data awal
-└── README.md           # Dokumentasi cara penggunaan
+├── db.py               # Konfigurasi koneksi MySQL dan MongoDB
+├── main.py             # Entry point dan routing menu aplikasi
+├── user.py             # Autentikasi (Register/Login) dan profil user
+├── story.py            # Manajemen karya, bab (hybrid), dan mesin baca
+├── karakter.py         # CRUD lore karakter (MongoDB) dan statistik
+├── transaktion.py      # Modul keuangan (Top-up, Pembelian, Withdrawal)
+├── query_sql.txt       # DDL MySQL, Trigger, View, dan data awal
+└── README.md           # Dokumentasi ini
 
 ```
 
-## Syarat
+## Fitur Utama
 
-1. Python versi 3.x
-2. XAMPP (untuk menjalankan server Apache dan MySQL)
-3. MongoDB Compass / MongoDB lokal aktif
+* **Autentikasi Aman:** Password disimpan menggunakan algoritma Hashing SHA-256.
+* **Hybrid Storage:** Metadata cerita di MySQL, konten naskah bab di MongoDB.
+* **Sistem Ekonomi:** Top-up koin, pembelian bab premium, dan penarikan saldo penulis.
+* **Dinamis Lore:** Pop-up informasi karakter berbasis data dokumen fleksibel di MongoDB.
+* **Workflow Penulis:** Manajemen draf cerita dan sistem publish bab yang terintegrasi.
 
-## Setup
+## Persyaratan Sistem
+
+1. Python 3.x
+2. XAMPP (Apache & MySQL)
+3. MongoDB Compass / Server MongoDB lokal
+
+## Setup dan Instalasi
 
 ### 1. Instalasi Dependensi
 
-Buka terminal pada folder project, lalu instal penghubung database:
+Buka terminal pada direktori proyek, jalankan:
 
 ```bash
 pip install mysql-connector-python pymongo
 
 ```
 
-### 2. Persiapan Database (MySQL & MongoDB)
-
-Aplikasi ini membutuhkan wadah database agar tidak terjadi error koneksi
+### 2. Persiapan Database
 
 * **MySQL:**
-1. Buka aplikasi XAMPP Control Panel, lalu klik **Start** pada Apache dan MySQL.
-2. Buka browser dan akses `http://localhost/phpmyadmin/`.
+1. Jalankan Apache dan MySQL di XAMPP.
+2. Akses `http://localhost/phpmyadmin/`.
 3. Buat database baru bernama `fiction_platform`.
-4. Masuk ke tab SQL, salin seluruh isi dari file `sql_query.txt`, lalu klik tombol eksekusi/Go.
+4. Klik menu **Import**, pilih file `query_sql.txt`, dan eksekusi.
+
 
 * **MongoDB:**
-1. Buka aplikasi MongoDB Compass.
-2. Biarkan URI default (`mongodb://localhost:27017/`) dan klik **Connect**.
-3. Anda tidak perlu membuat tabel manual di sini. MongoDB akan otomatis membuat koleksi ketika Python mengirimkan data teks atau lore karakter.
+1. Jalankan MongoDB Compass.
+2. Hubungkan ke URI `mongodb://localhost:27017/`. Database akan terbuat otomatis saat aplikasi dijalankan.
 
 
-### 3. Konfigurasi Port Lokal
 
-Secara bawaan, MySQL berjalan di port 3306. Jika laptop yang digunakan menjalankan MySQL di port yang berbeda (misalnya 3307/8), buka file `db.py` dan sesuaikan nilainya:
+### 3. Konfigurasi Koneksi
+
+Pastikan port pada file `db.py` sesuai dengan pengaturan XAMPP Anda:
 
 ```python
 def get_mysql_connection():
     return mysql.connector.connect(
         host="127.0.0.1",
-        port=3306, # Ubah angka ini sesuai port MySQL di XAMPP masing-masing
+        port=3308, # Sesuaikan dengan port MySQL di XAMPP Anda
         user="root",
         password="",
         database="fiction_platform"
@@ -65,13 +73,21 @@ def get_mysql_connection():
 
 ```
 
-### 4. Menjalankan Aplikasi
+## Menjalankan Aplikasi
 
-Setelah database menyala dan dependensi terinstal, jalankan file utama lewat terminal:
+Jalankan aplikasi dengan perintah:
 
 ```bash
 python main.py
 
 ```
 
-Apk CLI StoryForge akan langsung berjalan dan siap digunakan.
+## Panduan Penggunaan untuk Pengguna
+
+1. **Registrasi & Login:** Gunakan menu 1 dan 2. Kata sandi Anda akan dienkripsi secara otomatis.
+2. **Menjadi Penulis:** Gunakan menu 4, 5, dan 6 untuk membuat cerita, menambah bab (Hybrid), dan mendata karakter.
+3. **Menjadi Pembaca:** Gunakan menu 2 dan 3 untuk membaca karya. Jika bab berstatus Premium, pastikan Anda memiliki koin yang cukup.
+4. **Transaksi:** Gunakan menu 8 untuk melakukan Top-Up koin atau menarik pendapatan (Withdrawal) sebagai penulis.
+5. **Pop-up Lore:** Saat membaca bab, Anda dapat mengetik nama karakter yang terdaftar untuk melihat detail atribut karakter tersebut secara instan.
+
+```
