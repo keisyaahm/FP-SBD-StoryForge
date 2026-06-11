@@ -41,7 +41,7 @@ Aplikasi ini membutuhkan wadah database agar tidak terjadi error koneksi
 1. Buka aplikasi XAMPP Control Panel, lalu klik **Start** pada Apache dan MySQL.
 2. Buka browser dan akses `http://localhost/phpmyadmin/`.
 3. Buat database baru bernama `fiction_platform`.
-4. Masuk ke tab SQL, salin seluruh isi dari file `query_sql.txt`, lalu klik tombol eksekusi/Go.
+4. Masuk ke tab SQL, salin seluruh isi dari file `sql_query.txt`, lalu klik tombol eksekusi/Go.
 
 * **MongoDB:**
 1. Buka aplikasi MongoDB Compass.
