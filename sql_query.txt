@@ -1,6 +1,6 @@
-#query.txt
-
+DROP DATABASE IF EXISTS fiction_platform;
 CREATE DATABASE fiction_platform;
+USE fiction_platform;
 
 -- TABEL UTAMA
 CREATE TABLE `user` (
@@ -116,7 +116,6 @@ CREATE TABLE votes (
     FOREIGN KEY (chapter_id) REFERENCES chapter(chapter_id) ON DELETE CASCADE
 );
 
--- TABEL FITUR TAMBAHAN WATTPAD
 CREATE TABLE subscriptions (
     sub_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT,
@@ -169,7 +168,7 @@ LEFT JOIN chapter c ON s.story_id = c.story_id
 LEFT JOIN purchase_chapter pc ON c.chapter_id = pc.chapter_id
 GROUP BY s.story_id;
 
--- MENGISI DATA DUMMY
+-- DATA DUMMY
 INSERT INTO genres (genre_id, genre_name) VALUES
 (1, 'Action and Thriller'),
 (2, 'Culture and Identity'),
@@ -185,10 +184,10 @@ INSERT INTO genres (genre_id, genre_name) VALUES
 
 INSERT INTO `user` (username, email, password, coin_balance, author_balance) VALUES
 ('penulis_pro', 'penulis@pro.com', '123', 50, 500),
-('pembaca_kaya', 'pembaca@kaya.com', '123', 1000, 0);
+('pembaca_kaya', 'pembaca@kaya.com', '1234', 1000, 0);
 
 INSERT INTO story (user_id, title, synopsis, genre_id, tags, status) VALUES
-(1, 'Laut Bercerita', 'Kisah aktivis mahasiswa di era Orde Baru.', 4, 'Sejarah, Orde Baru, 98, ORINE, JKT48', 'published'),
+(1, 'Laut Bercerita', 'Kisah aktivis mahasiswa di era Orde Baru.', 4, 'Sejarah, Orde Baru, 98', 'published'),
 (1, 'Sinyal Penjaga Kota Digital', 'Misteri hilangnya data penting.', 7, 'Cyber, Misteri', 'published');
 
 INSERT INTO chapter (story_id, chapter_number, chapter_title, is_premium, coin_cost, status) VALUES
@@ -204,17 +203,15 @@ INSERT INTO purchase_chapter (user_id, chapter_id, coins_spent) VALUES
 
 INSERT INTO withdrawal (user_id, amount, status, requested_at) VALUES
 (1, 5000, 'pending', NOW()),
-(2, 10000, 'approved', NOW() - INTERVAL 1 DAY),
+(1, 10000, 'approved', NOW() - INTERVAL 1 DAY),
 (1, 2000, 'rejected', NOW() - INTERVAL 2 DAY);
-
 
 INSERT INTO read_history (user_id, chapter_id, read_at) VALUES
 (2, 2, NOW()),
 (1, 1, NOW() - INTERVAL 1 HOUR),
 (1, 2, NOW() - INTERVAL 30 MINUTE);
 
-
 INSERT INTO bookmark (user_id, story_id, created_at) VALUES
 (2, 1, NOW()),
 (1, 2, NOW() - INTERVAL 1 DAY),
-(2, 3, NOW() - INTERVAL 2 HOUR);
+(2, 2, NOW() - INTERVAL 2 HOUR);

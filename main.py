@@ -4,21 +4,19 @@ import story
 import character
 import transaction
 
-# Mendefinisikan session_user di level global agar bisa diakses semua fungsi
 session_user = None
 
 def main_menu():
-    global session_user # Memberitahu Python bahwa kita menggunakan variabel global di atas
+    global session_user
     
     while True:
         print("\n==========================================")
         print(" STORYFORGE: PLATFORM FIKSI ALL-IN-ONE ")
         print("==========================================")
         
-        # TAMPILAN JIKA BELUM LOGIN
         if not session_user:
-            print("1. Register")
-            print("2. Login")
+            print("1. Register Akun Baru")
+            print("2. Login Aplikasi")
             print("0. Keluar Aplikasi")
             pilihan = input("Pilih menu: ")
             
@@ -29,25 +27,23 @@ def main_menu():
             elif pilihan == '0': 
                 print("Terima kasih telah menggunakan StoryForge!")
                 break
-                
-        # TAMPILAN JIKA SUDAH LOGIN
         else:
             print(f"Halo, {session_user['username']}! Selamat datang di Beranda.")
-            print("--- PROFIL & AKUN ---")
-            print("1. Lihat Profil & Dompet Koin")
-            print("--- MODE PEMBACA ---")
-            print("2. Eksplorasi Cerita (Published)")
-            print("3. Baca Bab Cerita")
-            print("--- MODE PENULIS ---")
-            print("4. Buat Cerita Baru")
-            print("5. Tambah Bab (Draft/Publish)")
-            print("6. Kelola Lore Karakter")
+            print("\n--- PROFIL & AKUN ---")
+            print("1. Lihat Profil & Informasi Saldo Dompet")
+            print("\n--- MODE PEMBACA ---")
+            print("2. Eksplorasi Judul Cerita (Published)")
+            print("3. Baca Bab Cerita & Akses Lore")
+            print("\n--- MODE PENULIS ---")
+            print("4. Buat Cerita Baru (Draft)")
+            print("5. Tambah Bab Baru (Set Harga Konten Per Bab)")
+            print("6. Kelola Dokumentasi Lore Karakter")
             print("7. Lihat Daftar Karyaku")
-            print("--- KEUANGAN & TRANSAKSI ---")
-            print("8. Pusat Keuangan (Top-Up, Beli Bab, Pencairan)")
-            print("9. Logout")
+            print("\n--- KEUANGAN & EKONOMI PLATFORM ---")
+            print("8. Menu Transaksi Keuangan (Top-Up / Beli Bab / Tarik Saldo)")
+            print("9. Logout Akun")
             
-            pilihan = input("Pilih menu: ")
+            pilihan = input("\nPilih menu: ")
             
             if pilihan == '1':
                 user.lihat_profil(session_user)
@@ -60,17 +56,14 @@ def main_menu():
             elif pilihan == '5':
                 story.buat_chapter(session_user['user_id'])
             elif pilihan == '6':
-                character.menu_karakter(session_user['user_id'])
+                character.menu_character(session_user['user_id'])
             elif pilihan == '7':
                 story.lihat_story_ku(session_user['user_id'])
             elif pilihan == '8':
-                transaction.menu_transaksi(session_user['user_id'])
+                transaction.menu_transaction(session_user['user_id'])
             elif pilihan == '9':
                 session_user = None
-                print("Berhasil keluar akun.")
-            else:
-                print("Pilihan tidak valid.")
-
+                print("Berhasil keluar dari sesi akun.")
 
 if __name__ == "__main__":
     main_menu()
