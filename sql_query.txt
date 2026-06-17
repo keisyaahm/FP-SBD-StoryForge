@@ -1,3 +1,5 @@
+#query.txt
+
 CREATE DATABASE fiction_platform;
 
 -- TABEL UTAMA
