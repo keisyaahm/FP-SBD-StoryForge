@@ -91,3 +91,4 @@ python main.py
 5. **Pop-up Lore:** Saat membaca bab, Anda dapat mengetik nama karakter yang terdaftar untuk melihat detail atribut karakter tersebut secara instan.
 
 ```
+tes
