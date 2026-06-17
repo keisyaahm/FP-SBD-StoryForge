@@ -44,7 +44,7 @@ def main_menu():
             print("6. Kelola Lore Karakter")
             print("7. Lihat Daftar Karyaku")
             print("--- KEUANGAN & TRANSAKSI ---")
-            print("8. Menu Transaksi (Top-Up, Beli Bab Premium, Tarik Saldo)")
+            print("8. Pusat Keuangan (Top-Up, Beli Bab, Pencairan)")
             print("9. Logout")
             
             pilihan = input("Pilih menu: ")
@@ -68,6 +68,9 @@ def main_menu():
             elif pilihan == '9':
                 session_user = None
                 print("Berhasil keluar akun.")
+            else:
+                print("Pilihan tidak valid.")
+
 
 if __name__ == "__main__":
     main_menu()
