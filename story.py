@@ -59,6 +59,8 @@ def buat_chapter(user_id):
         print("Dibatalkan. Kembali ke menu utama.")
         return
     
+    
+    
     conn = get_mysql_connection()
     cursor = conn.cursor()
     
@@ -132,6 +134,30 @@ def lihat_story_ku(user_id):
                 
     cursor.close()
     conn.close()
+
+def publish_story(user_id):
+    print("\n=== PUBLISH CERITA ===")
+    story_id = input("Masukkan ID Cerita yang ingin dipublikasikan: ")
+    if story_id == '0':
+        print("Dibatalkan.")
+        return
+
+    conn = get_mysql_connection()
+    cursor = conn.cursor()
+    try:
+        # Pastikan cerita milik user
+        cursor.execute("SELECT story_id FROM story WHERE story_id = %s AND user_id = %s AND status = 'draft'", (story_id, user_id))
+        if not cursor.fetchone():
+            print("Cerita tidak ditemukan, bukan milikmu, atau sudah dipublish sebelumnya.")
+            return
+        cursor.execute("UPDATE story SET status = 'published' WHERE story_id = %s", (story_id,))
+        conn.commit()
+        print("Cerita berhasil dipublikasikan!")
+    except mysql.connector.Error as err:
+        print(f"Gagal: {err}")
+    finally:
+        cursor.close()
+        conn.close()
 
 def publish_chapter_draft():
     print("\n=== PUBLISH BAB DRAFT ===")

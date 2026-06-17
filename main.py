@@ -39,9 +39,10 @@ def main_menu():
             print("5. Tambah Bab Baru (Set Harga Konten Per Bab)")
             print("6. Kelola Dokumentasi Lore Karakter")
             print("7. Lihat Daftar Karyaku")
+            print("8. Publish Cerita ke Publik")            # ← baru, pindah ke sini
             print("\n--- KEUANGAN & EKONOMI PLATFORM ---")
-            print("8. Menu Transaksi Keuangan (Top-Up / Beli Bab / Tarik Saldo)")
-            print("9. Logout Akun")
+            print("9. Menu Transaksi Keuangan (Top-Up / Beli Bab / Tarik Saldo)")   # geser jadi 9
+            print("10. Logout Akun")                        # logout jadi 10
             
             pilihan = input("\nPilih menu: ")
             
@@ -60,10 +61,12 @@ def main_menu():
             elif pilihan == '7':
                 story.lihat_story_ku(session_user['user_id'])
             elif pilihan == '8':
-                transaction.menu_transaksi(session_user['user_id'])
+                story.publish_story(session_user['user_id'])
             elif pilihan == '9':
+                transaction.menu_transaksi(session_user['user_id'])
+            elif pilihan == '10':
                 session_user = None
-                print("Berhasil keluar dari sesi akun.")
+                
 
 if __name__ == "__main__":
     main_menu()
