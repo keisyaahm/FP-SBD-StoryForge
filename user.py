@@ -13,8 +13,14 @@ def register():
     email = input("Email    : ").strip()
     password = input("Password : ").strip()
 
+    # VALIDASI INPUT KOSONG
     if not username or not email or not password:
         print("GAGAL: Username, Email, dan Password tidak boleh dikosongkan!")
+        return
+
+    # VALIDASI ALFANUMERIK
+    if not username.replace(" ", "").isalnum():
+        print("GAGAL: Username hanya boleh berisi huruf dan angka!")
         return
 
     # Hashing sebelum masuk ke DB
