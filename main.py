@@ -3,6 +3,7 @@ import user
 import story
 import character
 import transaction
+from story import *
 
 session_user = None
 
@@ -51,7 +52,7 @@ def main_menu():
             elif pilihan == '2':
                 story.lihat_semua_published()
             elif pilihan == '3':
-                story.baca_chapter(session_user['user_id'])
+                story.baca_chapter(session_user)
             elif pilihan == '4':
                 story.buat_story(session_user['user_id'])
             elif pilihan == '5':

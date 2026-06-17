@@ -91,6 +91,10 @@ def buat_chapter(user_id):
         
         new_chapter_id = cursor.lastrowid 
         
+        if status_db == 'published':
+            cursor.execute("UPDATE story SET status = 'published' WHERE story_id = %s AND status = 'draft'", (story_id,))
+            conn.commit()
+
         mongo_db = get_mongo_database()
         chapters_content = mongo_db["chapters_content"]
         
@@ -112,6 +116,92 @@ def buat_chapter(user_id):
     finally:
         cursor.close()
         conn.close()
+
+def tambah_komentar(user_id, username, chapter_id):
+    mongo_db = get_mongo_database()
+    chapters_content = mongo_db["chapters_content"]
+
+    data = chapters_content.find_one({"chapter_id": int(chapter_id)})
+
+    if not data:
+        print("Isi bab tidak ditemukan.")
+        return
+
+    jumlah_paragraf = len(data["paragraf"])
+
+    print("\n===== DAFTAR PARAGRAF =====")
+
+    for p in data["paragraf"]:
+        teks_pendek = p["teks"][:50]
+        print(f"{p['urutan_paragraf']}. {teks_pendek}...")
+
+    while True:
+        pilihan = input(
+            "\nKomentar pada paragraf ke (0 untuk batal): "
+        )
+
+        try:
+            nomor_paragraf = int(pilihan)
+        except ValueError:
+            print("Nomor paragraf harus berupa angka.")
+            continue
+
+        if nomor_paragraf == 0:
+            print("Penambahan komentar dibatalkan.")
+            return
+
+        if nomor_paragraf < 1 or nomor_paragraf > jumlah_paragraf:
+            print("Nomor paragraf tidak valid.")
+            continue
+
+        break
+
+    komentar = input("Komentar: ")
+
+    hasil = chapters_content.update_one(
+        {"chapter_id": int(chapter_id)},
+        {
+            "$push": {
+                f"paragraf.{nomor_paragraf-1}.komentar_inline": {
+                    "user_id": user_id,
+                    "username": username,
+                    "isi": komentar
+                }
+            }
+        }
+    )
+
+    if hasil.modified_count > 0:
+        print("Komentar berhasil ditambahkan!")
+    else:
+        print("Gagal menambahkan komentar.")
+
+def lihat_komentar(chapter_id):
+    mongo_db = get_mongo_database()
+
+    data = mongo_db["chapters_content"].find_one(
+        {"chapter_id": int(chapter_id)}
+    )
+
+    if not data:
+        print("Bab tidak ditemukan.")
+        return
+
+    print("\n===== DAFTAR KOMENTAR =====")
+
+    for paragraf in data["paragraf"]:
+        nomor = paragraf["urutan_paragraf"]
+
+        print(f"\n--- Paragraf {nomor} ---")
+
+        komentar_list = paragraf.get("komentar_inline", [])
+
+        if len(komentar_list) == 0:
+            print("Belum ada komentar.")
+        else:
+            for i, k in enumerate(komentar_list, start=1):
+                print(f"{i}. {k['username']}")
+                print(f"   {k['isi']}")
 
 def lihat_story_ku(user_id):
     print("\n=== DAFTAR KARYA SAYA ===")
@@ -192,7 +282,10 @@ def lihat_semua_published():
     cursor.close()
     conn.close()
 
-def baca_chapter(user_id):
+def baca_chapter(session_user):
+    user_id = session_user['user_id']
+    username = session_user['username']
+
     print("\n=== MESIN PEMBACAAN ===")
     chapter_id = input("Masukkan ID Bab yang ingin dibaca: ")
 
@@ -238,15 +331,28 @@ def baca_chapter(user_id):
         # LOGIKA SIMULASI POP-UP LORE KARAKTER
         while True:
             print("\nOpsi Pembaca:")
-            print("[Ketik nama karakter] -> Untuk melihat Info Detail (Pop-Up Lore)")
-            print("[Ketik 'X'] -> Selesai membaca dan keluar")
+            print("[Ketik nama karakter] -> Melihat lore karakter")
+            print("[Ketik C] -> Tambah komentar")
+            print("[Ketik V] -> Lihat komentar")
+            print("[Ketik X] -> Keluar")
+
             opsi = input("Masukkan pilihan: ").strip().lower()
 
             if opsi == 'x':
                 print("Keluar dari mode membaca.")
                 break
+
+            elif opsi == 'c':
+                tambah_komentar(
+                    user_id,
+                    username,
+                    chapter_id
+                )
+
+            elif opsi == 'v':
+                lihat_komentar(chapter_id)
+
             elif opsi != '':
-                # Mencari lore karakter di MongoDB berdasarkan nama dan story_id bab ini
                 lore = mongo_db["character_lores"].find_one({
                     "story_id": chapter_meta['story_id'],
                     "character_name": opsi
@@ -256,12 +362,21 @@ def baca_chapter(user_id):
                     print("\n" + "=" * 40)
                     print(f" POP-UP INFO: {lore['character_name'].upper()}")
                     print("=" * 40)
+
                     for key, value in lore.items():
-                        if key not in ["_id", "character_id", "story_id", "character_name"]:
+                        if key not in [
+                            "_id",
+                            "character_id",
+                            "story_id",
+                            "character_name"
+                        ]:
                             print(f" - {key.title()}: {value}")
+
                     print("=" * 40)
-                    input("(Tekan Enter untuk menutup pop-up dan lanjut membaca)")
+                    input("(Tekan Enter untuk menutup pop-up)")
                 else:
-                    print(f"Karakter dengan nama '{opsi}' tidak ditemukan di sistem lore.")
+                    print(
+                        f"Karakter dengan nama '{opsi}' tidak ditemukan."
+                    )
     else:
         print("Teks cerita tidak ditemukan di MongoDB.")
