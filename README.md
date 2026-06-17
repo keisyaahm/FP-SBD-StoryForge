@@ -1,29 +1,29 @@
 # StoryForge - Platform Fiksi All-in-One
 
-StoryForge adalah platform penulisan dan pembacaan fiksi berbasis CLI (Command Line Interface). Aplikasi ini menggunakan arsitektur Hybrid Database yang mengintegrasikan MySQL untuk integritas data transaksi dan MongoDB untuk fleksibilitas penyimpanan konten teks serta data lore karakter yang dinamis.
+StoryForge adalah platform penulisan dan pembacaan fiksi berbasis CLI (*Command Line Interface*). Proyek ini mengimplementasikan **Arsitektur Hybrid Database**, mengintegrasikan **MySQL** untuk integritas data transaksional yang ketat dan **MongoDB** untuk fleksibilitas skema konten naskah serta metadata karakter yang dinamis.
 
 ## Struktur Proyek
 
 ```text
 StoryForge/
-├── db.py               # Konfigurasi koneksi MySQL dan MongoDB
-├── main.py             # Entry point dan routing menu aplikasi
-├── user.py             # Autentikasi (Register/Login) dan profil user
-├── story.py            # Manajemen karya, bab (hybrid), dan mesin baca
-├── karakter.py         # CRUD lore karakter (MongoDB) dan statistik
-├── transaktion.py      # Modul keuangan (Top-up, Pembelian, Withdrawal)
-├── query_sql.txt       # DDL MySQL, Trigger, View, dan data awal
-└── README.md           # Dokumentasi ini
+├── db.py               # Konfigurasi koneksi ganda ke MySQL dan MongoDB
+├── main.py             # Entry point dan sistem routing menu utama
+├── user.py             # Modul autentikasi (Hashing SHA-256) dan profil user
+├── story.py            # Manajemen karya, bab (hybrid), dan mesin pembacaan
+├── character.py        # CRUD lore karakter (MongoDB) dan statistik
+├── transaction.py      # Modul keuangan (Top-up, Pembelian, Withdrawal)
+├── sinkron_dummy.py    # Skrip sinkronisasi data teks cerita & karakter
+└── query.sql           # DDL MySQL, Triggers, Views, dan data dummy
 
 ```
 
 ## Fitur Utama
 
-* **Autentikasi Aman:** Password disimpan menggunakan algoritma Hashing SHA-256.
-* **Hybrid Storage:** Metadata cerita di MySQL, konten naskah bab di MongoDB.
-* **Sistem Ekonomi:** Top-up koin, pembelian bab premium, dan penarikan saldo penulis.
-* **Dinamis Lore:** Pop-up informasi karakter berbasis data dokumen fleksibel di MongoDB.
-* **Workflow Penulis:** Manajemen draf cerita dan sistem publish bab yang terintegrasi.
+* **Autentikasi Aman:** Perlindungan kata sandi menggunakan hashing SHA-256.
+* **Hybrid Storage Engine:** Metadata terstruktur di MySQL; konten bab dan lore karakter di MongoDB.
+* **Sistem Ekonomi Token:** Top-up koin (Rp 5rb-1jt), pembelian bab premium, dan penarikan dana penulis.
+* **Trigger & View (Database Level):** Otomasi pemotongan koin & perhitungan pendapatan penulis secara *real-time* di sisi server.
+* **Dinamis Lore:** *Pop-up* informasi karakter berbasis pencarian *schema-less* di MongoDB.
 
 ## Persyaratan Sistem
 
@@ -48,24 +48,30 @@ pip install mysql-connector-python pymongo
 1. Jalankan Apache dan MySQL di XAMPP.
 2. Akses `http://localhost/phpmyadmin/`.
 3. Buat database baru bernama `fiction_platform`.
-4. Klik menu **Import**, pilih file `query_sql.txt`, dan eksekusi.
+4. Klik menu **Import**, pilih file `query.sql`, dan eksekusi.
 
 
 * **MongoDB:**
-1. Jalankan MongoDB Compass.
-2. Hubungkan ke URI `mongodb://localhost:27017/`. Database akan terbuat otomatis saat aplikasi dijalankan.
+1. Jalankan MongoDB Compass dan hubungkan ke `mongodb://localhost:27017/`.
+2. Jalankan skrip sinkronisasi di terminal untuk memetakan konten ke database:
+```bash
+python sinkron_dummy.py
+
+```
+
+
 
 
 
 ### 3. Konfigurasi Koneksi
 
-Pastikan port pada file `db.py` sesuai dengan pengaturan XAMPP Anda:
+Pastikan konfigurasi `port` pada file `db.py` sesuai dengan pengaturan XAMPP Anda (umumnya 3306 atau 3308):
 
 ```python
 def get_mysql_connection():
     return mysql.connector.connect(
         host="127.0.0.1",
-        port=3308, # Sesuaikan dengan port MySQL di XAMPP Anda
+        port=3308, 
         user="root",
         password="",
         database="fiction_platform"
@@ -82,13 +88,15 @@ python main.py
 
 ```
 
-## Panduan Penggunaan untuk Pengguna
+## Panduan Operasional
 
-1. **Registrasi & Login:** Gunakan menu 1 dan 2. Kata sandi Anda akan dienkripsi secara otomatis.
-2. **Menjadi Penulis:** Gunakan menu 4, 5, dan 6 untuk membuat cerita, menambah bab (Hybrid), dan mendata karakter.
-3. **Menjadi Pembaca:** Gunakan menu 2 dan 3 untuk membaca karya. Jika bab berstatus Premium, pastikan Anda memiliki koin yang cukup.
-4. **Transaksi:** Gunakan menu 8 untuk melakukan Top-Up koin atau menarik pendapatan (Withdrawal) sebagai penulis.
-5. **Pop-up Lore:** Saat membaca bab, Anda dapat mengetik nama karakter yang terdaftar untuk melihat detail atribut karakter tersebut secara instan.
+1. **Registrasi & Login:** Gunakan menu 1 dan 2. Kata sandi akan di-*hash* otomatis untuk keamanan.
+2. **Menjadi Penulis:** Gunakan menu 4 hingga 7 untuk membuat cerita, menambah bab (otomatis tersinkron ke MongoDB), dan mengelola lore karakter.
+3. **Menjadi Pembaca:** Gunakan menu 2 dan 3 untuk membaca karya. Jika bab berstatus *Premium*, pastikan saldo koin mencukupi.
+4. **Menu Transaksi (Menu 8):**
+* **Top-Up:** Lakukan top-up (min Rp 5.000, maks Rp 1.000.000).
+* **Beli Bab:** Memotong saldo secara otomatis menggunakan MySQL Trigger.
+* **Penarikan (Withdrawal):** Penulis dapat mengajukan penarikan saldo. Admin (via phpMyAdmin) dapat menyetujui dengan mengubah status menjadi `approved`, yang akan otomatis memotong saldo penulis.
 
-```
-tes
+
+5. **Pop-up Lore:** Saat membaca bab, masukkan nama karakter yang terdaftar (case-insensitive) untuk memunculkan detail atribut karakter secara instan.
