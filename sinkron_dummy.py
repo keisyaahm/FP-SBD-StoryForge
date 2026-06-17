@@ -5,7 +5,7 @@ def eksekusi_sinkronisasi():
     print("Membuka koneksi ke MongoDB...")
     db = get_mongo_database()
     
-    #Teks Naskah untuk Bab 1
+    # 1. Mengisi Teks Naskah untuk Bab 1, 2, dan 3
     chapters_collection = db["chapters_content"]
     chapters_collection.delete_many({"chapter_id": {"$in": [1, 2, 3]}}) 
     
@@ -17,12 +17,25 @@ def eksekusi_sinkronisasi():
                 {"urutan_paragraf": 2, "teks": "Kisah ini berfokus pada sekelompok aktivis mahasiswa yang memperjuangkan kebebasan dan demokrasi di masa Orde Baru (tahun 1991–1998). Melalui sudut pandang Laut dan Asmara, pembaca diajak menelusuri kisah persahabatan, pengkhianatan dari dalam kelompok, penyiksaan, hingga kepedihan keluarga yang kehilangan anggota keluarga mereka akibat penculikan paksa.", "komentar_inline": []},
                 {"urutan_paragraf": 3, "teks": "Novel ini terinspirasi dari kisah nyata para korban penculikan aktivis 1998 dan menjadi salah satu karya sastra yang sangat populer.", "komentar_inline": []}
             ]
+        },
+        {
+            "chapter_id": 2,
+            "paragraf": [
+                {"urutan_paragraf": 1, "teks": "Malam pengkhianatan itu akhirnya tiba. Tidak ada yang menduga bahwa salah satu dari mereka sendiri yang menjadi informan.", "komentar_inline": []},
+                {"urutan_paragraf": 2, "teks": "Gusti menatap kosong ke arah pintu yang baru saja didobrak. Semuanya hancur berkeping-keping.", "komentar_inline": []}
+            ]
+        },
+        {
+            "chapter_id": 3,
+            "paragraf": [
+                {"urutan_paragraf": 1, "teks": "Sinyal Penjaga Kota Digital mulai berkedip merah. Ada penyusup di sektor 7.", "komentar_inline": []}
+            ]
         }
     ]
     chapters_collection.insert_many(dummy_chapters)
-    print("Berhasil: Teks Bab 1 telah ditambahkan ke MongoDB!")
+    print("Berhasil: Teks Bab 1, 2, dan 3 telah ditambahkan ke MongoDB!")
     
-    #Lore Karakter
+    # 2. Mengisi Lore Karakter
     character_collection = db["character_lores"]
     character_collection.delete_many({"story_id": 1})
     

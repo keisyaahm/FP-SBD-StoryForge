@@ -1,47 +1,41 @@
+# File: transaction.py
 import mysql.connector
 from db import get_mysql_connection
 
 def top_up(user_id):
-    """Proses top-up koin pembaca dengan batasan minimal, maksimal, dan kelipatan."""
     print("\n--- Menu Top-Up Koin ---")
-    print("Aturan: Minimal Rp 5.000 | Maksimal Rp 50.000 | Kelipatan Rp 5.000")
+    print("Aturan: Minimal Rp 5.000 | Maksimal Rp 1.000.000 | Kelipatan Rp 5.000")
     print("Konversi: Setiap Rp 5.000 = 10 Koin Pembaca")
     
     try:
         nominal = int(input("Masukkan nominal uang yang dibayarkan (Rp): "))
         
-        # Validasi Batas Bawah dan Batas Atas
         if nominal < 5000:
             print("[FAILED] Transaksi Ditolak: Nominal top-up minimal adalah Rp 5.000.")
             return
-        if nominal > 50000:
-            print("[FAILED] Transaksi Ditolak: Nominal top-up maksimal per transaksi adalah Rp 50.000.")
+        if nominal > 1000000: # <--- DIUBAH MENJADI 1 JUTA
+            print("[FAILED] Transaksi Ditolak: Nominal top-up maksimal per transaksi adalah Rp 1.000.000.")
             return
             
-        # Validasi Kelipatan Rp 5.000
         if nominal % 5000 != 0:
-            print("[FAILED] Transaksi Ditolak: Nominal harus kelipatan Rp 5.000 (Contoh: 5000, 10000, 15000).")
+            print("[FAILED] Transaksi Ditolak: Nominal harus kelipatan Rp 5.000.")
             return
 
-        # Perhitungan Koin Otomatis Berdasarkan Aturan Bisnis Baru
         koin = (nominal // 5000) * 10
 
         conn = get_mysql_connection()
         cursor = conn.cursor()
 
-        # Rekam Log Riwayat Transaksi
         cursor.execute(
             "INSERT INTO transaction_topup (user_id, amount_paid, coins_gained) VALUES (%s, %s, %s)",
             (user_id, nominal, koin)
         )
-        # Tambah Saldo Koin User
         cursor.execute(
             "UPDATE user SET coin_balance = coin_balance + %s WHERE user_id = %s",
             (koin, user_id)
         )
         conn.commit()
         
-        # Ambil Saldo Terbaru untuk Ditampilkan ke Layar
         cursor.execute("SELECT coin_balance FROM user WHERE user_id = %s", (user_id,))
         saldo_terbaru = cursor.fetchone()[0]
 
@@ -58,7 +52,6 @@ def top_up(user_id):
 
 
 def sudah_beli(user_id, chapter_id):
-    """Memeriksa riwayat pembelian bab agar user tidak membeli dua kali."""
     try:
         conn = get_mysql_connection()
         cursor = conn.cursor()
@@ -76,7 +69,6 @@ def sudah_beli(user_id, chapter_id):
 
 
 def beli_bab(user_id):
-    """Membeli bab cerita premium dengan notifikasi kekurangan saldo dan sisa saldo akhir."""
     print("\n--- Menu Pembelian Bab Premium ---")
     try:
         chapter_id = int(input("Masukkan ID Bab yang ingin dibeli: "))
@@ -88,7 +80,6 @@ def beli_bab(user_id):
         conn = get_mysql_connection()
         cursor = conn.cursor()
 
-        # Ambil spesifikasi naskah bab
         cursor.execute(
             "SELECT is_premium, coin_cost, status FROM chapter WHERE chapter_id = %s",
             (chapter_id,)
@@ -113,7 +104,6 @@ def beli_bab(user_id):
             print("[INFO] Anda sudah memiliki bab ini. Akses langsung terbuka!")
             return
 
-        # Periksa kecukupan dompet koin pembaca
         cursor.execute("SELECT coin_balance FROM user WHERE user_id = %s", (user_id,))
         saldo = cursor.fetchone()[0]
 
@@ -121,10 +111,9 @@ def beli_bab(user_id):
             kurang = coin_cost - saldo
             print(f"[FAILED] Transaksi Gagal: Saldo koin tidak mencukupi.")
             print(f"Harga Bab: {coin_cost} koin | Saldo Anda: {saldo} koin.")
-            print(f"Pemberitahuan: Anda kekurangan {kurang} koin. Silakan lakukan Top-Up terlebih dahulu pada menu 8.")
+            print(f"Pemberitahuan: Anda kekurangan {kurang} koin. Silakan Top-Up terlebih dahulu.")
             return
 
-        # Eksekusi Pembelian (Trigger database otomatis memotong saldo pembaca & menambah saldo penulis)
         cursor.execute(
             "INSERT INTO purchase_chapter (user_id, chapter_id, coins_spent) VALUES (%s, %s, %s)",
             (user_id, chapter_id, coin_cost)
@@ -143,7 +132,6 @@ def beli_bab(user_id):
 
 
 def request_withdrawal(author_id):
-    """Mengajukan penarikan saldo pendapatan penulis (Maksimal Rp 1.000.000 / 2.000 koin per transaksi)."""
     print("\n--- Menu Penarikan Saldo Penulis (Withdrawal) ---")
     print("Kurs Konversi: 1 Koin Penulis = Rp 500")
     print("Batas Maksimal Penarikan: Rp 1.000.000 (Setara 2.000 Koin) per transaksi")
@@ -154,7 +142,6 @@ def request_withdrawal(author_id):
             print("[FAILED] Input harus lebih besar dari 0 koin.")
             return
 
-        # Validasi Batas Atas Transaksi Sesuai Hasil Demo (Maksimal Rp 1 Juta = 2.000 Koin)
         if jumlah > 2000:
             print("[FAILED] Ditolak: Batas maksimal pencairan per transaksi adalah 2.000 koin (Rp 1.000.000).")
             return
@@ -162,7 +149,6 @@ def request_withdrawal(author_id):
         conn = get_mysql_connection()
         cursor = conn.cursor()
 
-        # FIX BUG: Menghapus kolom 'role' dari kueri karena sudah dihapus di skema tabel baru
         cursor.execute(
             "SELECT author_balance FROM user WHERE user_id = %s",
             (author_id,)
@@ -180,7 +166,6 @@ def request_withdrawal(author_id):
             print(f"Saldo pendapatan Anda saat ini: {author_balance} koin.")
             return
 
-        # Simpan draf pengajuan dengan status pending (menunggu verifikasi transfer manual oleh admin)
         cursor.execute(
             "INSERT INTO withdrawal (user_id, amount, status) VALUES (%s, %s, 'pending')",
             (author_id, jumlah)
@@ -189,7 +174,7 @@ def request_withdrawal(author_id):
         
         nominal_rupiah = jumlah * 500
         print(f"[SUCCESS] Pengajuan sukses! Mencairkan {jumlah} koin menjadi Rp {nominal_rupiah:,}.")
-        print("Status: [PENDING]. Dana akan masuk ke rekening Anda setelah disetujui oleh admin.")
+        print("Status: [PENDING]. Dana akan masuk ke rekening setelah disetujui admin.")
         
     except ValueError:
         print("[ERROR] Masukan harus berupa angka bulat.")
@@ -201,7 +186,6 @@ def request_withdrawal(author_id):
 
 
 def lihat_riwayat_withdrawal(author_id):
-    """Melihat status lembar pengajuan penarikan dana penulis."""
     try:
         conn = get_mysql_connection()
         cursor = conn.cursor()
@@ -223,3 +207,84 @@ def lihat_riwayat_withdrawal(author_id):
     finally:
         if 'cursor' in locals(): cursor.close()
         if 'conn' in locals(): conn.close()
+
+# riwayat2
+def lihat_riwayat_topup(user_id):
+    """Menampilkan riwayat top-up uang tunai menjadi koin untuk pembaca."""
+    try:
+        conn = get_mysql_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT topup_id, amount_paid, coins_gained, created_at FROM transaction_topup WHERE user_id = %s ORDER BY created_at DESC",
+            (user_id,)
+        )
+        riwayat = cursor.fetchall()
+
+        print(f"\n--- Riwayat Top-Up Koin ---")
+        if not riwayat:
+            print("Belum ada riwayat Top-Up.")
+        else:
+            for row in riwayat:
+                print(f"ID Transaksi: {row[0]} | Bayar: Rp {row[1]:,} | Dapat: {row[2]} Koin | Waktu: {row[3]}")
+    except Exception as e:
+        print(f"[ERROR] Gagal menarik riwayat top-up: {e}")
+    finally:
+        if 'cursor' in locals(): cursor.close()
+        if 'conn' in locals(): conn.close()
+
+def lihat_riwayat_pembelian(user_id):
+    """Menampilkan riwayat pembelian bab premium pembaca."""
+    try:
+        conn = get_mysql_connection()
+        cursor = conn.cursor()
+        # Menggunakan JOIN untuk mengambil judul bab agar lebih mudah dibaca daripada sekadar ID Bab
+        cursor.execute(
+            """SELECT p.purchase_id, c.chapter_title, p.coins_spent, p.purchase_at 
+               FROM purchase_chapter p 
+               JOIN chapter c ON p.chapter_id = c.chapter_id 
+               WHERE p.user_id = %s ORDER BY p.purchase_at DESC""",
+            (user_id,)
+        )
+        riwayat = cursor.fetchall()
+
+        print(f"\n--- Riwayat Pembelian Bab Premium ---")
+        if not riwayat:
+            print("Belum ada riwayat pembelian bab.")
+        else:
+            for row in riwayat:
+                print(f"ID Beli: {row[0]} | Bab: '{row[1]}' | Harga: -{row[2]} Koin | Waktu: {row[3]}")
+    except Exception as e:
+        print(f"[ERROR] Gagal menarik riwayat pembelian: {e}")
+    finally:
+        if 'cursor' in locals(): cursor.close()
+        if 'conn' in locals(): conn.close()
+
+# INTEGRASI main.py
+def menu_transaksi(user_id):
+    while True:
+        print("\n=== MENU TRANSAKSI KEUANGAN ===")
+        print("1. Top-Up Koin")
+        print("2. Beli Bab Premium")
+        print("3. Ajukan Penarikan Saldo (Penulis)")
+        print("4. Lihat Riwayat Penarikan (Penulis)")
+        print("5. Lihat Riwayat Top-Up (Pembaca)")
+        print("6. Lihat Riwayat Pembelian Bab (Pembaca)")
+        print("0. Kembali ke Menu Utama")
+        pilihan = input("Pilih menu: ")
+
+        if pilihan == '1':
+            top_up(user_id)
+        elif pilihan == '2':
+            beli_bab(user_id)
+        elif pilihan == '3':
+            request_withdrawal(user_id)
+        elif pilihan == '4':
+            lihat_riwayat_withdrawal(user_id)
+        elif pilihan == '5':
+            lihat_riwayat_topup(user_id)
+        elif pilihan == '6':
+            lihat_riwayat_pembelian(user_id)
+        elif pilihan == '0':
+            break
+        else:
+            print("Pilihan tidak valid.")

@@ -56,11 +56,11 @@ def main_menu():
             elif pilihan == '5':
                 story.buat_chapter(session_user['user_id'])
             elif pilihan == '6':
-                character.menu_character(session_user['user_id'])
+                character.menu_karakter(session_user['user_id'])
             elif pilihan == '7':
                 story.lihat_story_ku(session_user['user_id'])
             elif pilihan == '8':
-                transaction.menu_transaction(session_user['user_id'])
+                transaction.menu_transaksi(session_user['user_id'])
             elif pilihan == '9':
                 session_user = None
                 print("Berhasil keluar dari sesi akun.")

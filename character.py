@@ -1,6 +1,6 @@
 #character.py 
 from bson import ObjectId
-import mysql
+import mysql.connector
 from db import get_mysql_connection, get_mongo_database
 
 db = get_mongo_database()
@@ -125,7 +125,7 @@ def view_character_detail():
         if key != "_id":
             print(f"{key.title()} : {value}")
 
-# EDIT ATRIBUT KARAKTER
+# EDIT ATRIBUT KARAKTER (SINKRONISASI HYBRID)
 def update_character():
     print("\n=== Edit Karakter ===")
     character_id = int(input("Character ID : "))
@@ -138,18 +138,36 @@ def update_character():
         print("Karakter tidak ditemukan.")
         return
 
-    field = input("Field yang ingin diubah : ")
+    field = input("Field yang ingin diubah (contoh: character_name / Hobi) : ")
     value = input("Nilai baru : ")
 
+    # 1. Update ke database MongoDB
     result = character_collection.update_one(
         {"character_id": character_id},
         {"$set": {field: value}}
     )
 
+    # 2. SINKRONISASI KE MYSQL: Jika yang diubah adalah nama, update juga MySQL-nya
+    if field.lower() == "character_name":
+        try:
+            conn = get_mysql_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE `character` SET character_name = %s WHERE character_id = %s",
+                (value, character_id)
+            )
+            conn.commit()
+            print("[Sistem] Nama karakter di MySQL juga berhasil diperbarui.")
+        except mysql.connector.Error as err:
+            print(f"[ERROR] Gagal sinkronisasi MySQL: {err}")
+        finally:
+            if 'cursor' in locals(): cursor.close()
+            if 'conn' in locals(): conn.close()
+
     if result.modified_count > 0:
-        print("Data berhasil diperbarui.")
+        print("Data berhasil diperbarui secara menyeluruh.")
     else:
-        print("Tidak ada perubahan.")
+        print("Tidak ada perubahan (nilai yang Anda masukkan sama dengan sebelumnya).")
 
 # HAPUS KARAKTER (DIUBAH LOGIKA HYBRID)
 def delete_character():

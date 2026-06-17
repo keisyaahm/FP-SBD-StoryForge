@@ -1,24 +1,29 @@
-#user.py
+# File: user.py
 import mysql.connector
+import hashlib
 from db import get_mysql_connection
+
+# HASHING PASSWORD
+def hash_password(password_asli):
+    return hashlib.sha256(password_asli.encode()).hexdigest()
 
 def register():
     print("\n=== DAFTAR AKUN BARU ===")
-
     username = input("Username : ").strip()
     email = input("Email    : ").strip()
     password = input("Password : ").strip()
 
-    # VALIDASI INPUT KOSONG
     if not username or not email or not password:
         print("GAGAL: Username, Email, dan Password tidak boleh dikosongkan!")
         return
+
+    # Hashing sebelum masuk ke DB
+    password_aman = hash_password(password)
 
     conn = get_mysql_connection()
     cursor = conn.cursor(dictionary=True)
 
     try:
-        # CEK APAKAH USERNAME ATAU EMAIL SUDAH ADA
         cursor.execute(
             "SELECT * FROM `user` WHERE username = %s OR email = %s",
             (username, email)
@@ -29,35 +34,34 @@ def register():
             return
 
         sql = "INSERT INTO `user` (username, email, password) VALUES (%s, %s, %s)"
-        cursor.execute(sql, (username, email, password))
+        cursor.execute(sql, (username, email, password_aman))
         conn.commit()
 
-        print("Registrasi berhasil! Silakan login.")
+        print("Registrasi berhasil! Kata sandi telah dienkripsi. Silakan login.")
 
     except mysql.connector.Error as err:
         print(f"Error: {err}")
-
     finally:
         cursor.close()
         conn.close()
 
 def login():
     print("\n=== MASUK APLIKASI ===")
-
     email = input("Email    : ").strip()
     password = input("Password : ").strip()
 
-    # VALIDASI INPUT KOSONG
     if not email or not password:
         print("GAGAL: Email dan Password tidak boleh dikosongkan!")
         return
+
+    # Hashing input untuk pencocokan DB
+    password_tebakan = hash_password(password)
 
     conn = get_mysql_connection()
     cursor = conn.cursor(dictionary=True)
 
     sql = "SELECT * FROM `user` WHERE email = %s AND password = %s"
-    cursor.execute(sql, (email, password))
-
+    cursor.execute(sql, (email, password_tebakan))
     user = cursor.fetchone()
 
     cursor.close()
@@ -80,7 +84,6 @@ def lihat_profil(user_data):
     )
 
     user_terbaru = cursor.fetchone()
-
     cursor.close()
     conn.close()
 

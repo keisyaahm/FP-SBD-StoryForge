@@ -133,51 +133,6 @@ def lihat_story_ku(user_id):
     cursor.close()
     conn.close()
 
-def buat_chapter(user_id):
-    print("\n=== STUDIO: TAMBAH BAB BARU (HYBRID) ===")
-    story_id = input("Masukkan ID Cerita milikmu: ")
-    chapter_num = input("Bab Ke-Berapa: ")
-    chapter_title = input("Judul Bab: ")
-    is_premium = input("Berbayar? (1 untuk Ya, 0 untuk Tidak): ")
-    coin_cost = input("Harga Koin (0 jika gratis): ")
-    status_input = input("Langsung Publish atau Simpan Draft? (p/d): ").lower()
-    
-    status_db = 'published' if status_input == 'p' else 'draft'
-    isi_teks = input("Ketik isi paragraf cerita di sini:\n")
-    
-    conn = get_mysql_connection()
-    cursor = conn.cursor()
-    try:
-        # STEP 1: Metadata ke MySQL
-        sql_mysql = """INSERT INTO chapter (story_id, chapter_number, chapter_title, is_premium, coin_cost, status) 
-                       VALUES (%s, %s, %s, %s, %s, %s)"""
-        cursor.execute(sql_mysql, (story_id, chapter_num, chapter_title, is_premium, coin_cost, status_db))
-        conn.commit()
-        
-        new_chapter_id = cursor.lastrowid 
-        
-        # STEP 2: Konten teks ke MongoDB
-        mongo_db = get_mongo_database()
-        chapters_content = mongo_db["chapters_content"]
-        
-        dokumen_mongodb = {
-            "chapter_id": new_chapter_id,
-            "paragraf": [
-                {
-                    "urutan_paragraf": 1,
-                    "teks": isi_teks,
-                    "komentar_inline": []
-                }
-            ]
-        }
-        chapters_content.insert_one(dokumen_mongodb)
-        print(f"Bab berhasil ditambahkan dengan status [{status_db.upper()}]!")
-    except Exception as err:
-        print(f"Gagal: {err}")
-    finally:
-        cursor.close()
-        conn.close()
-
 def publish_chapter_draft():
     print("\n=== PUBLISH BAB DRAFT ===")
     chapter_id = input("Masukkan ID Bab yang ingin di-publish: ")
