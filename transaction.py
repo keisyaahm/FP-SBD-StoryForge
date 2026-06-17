@@ -41,19 +41,40 @@ def cek_saldo(user_id):
         print(f"[ERROR] Gagal mengambil saldo: {e}")
 
 
+MIN_TOPUP = 5000
+MAX_TOPUP = 50000
+KELIPATAN_TOPUP = 5000
+KOIN_PER_KELIPATAN = 10  # tiap Rp5.000 = 10 koin
+
+
 def top_up(user_id):
-    """Proses top-up saldo koin user."""
+    """Proses top-up saldo koin user.
+    Nominal harus kelipatan Rp5.000 (min Rp5.000, max Rp500.000).
+    Jumlah koin dihitung otomatis dari nominal, jadi user gak input koin manual.
+    """
     print("\n--- Menu Top-Up ---")
+    print(f"Nominal harus kelipatan Rp{KELIPATAN_TOPUP:,} (contoh: Rp5.000 = {KOIN_PER_KELIPATAN} koin).")
+    print(f"Minimal Rp{MIN_TOPUP:,}, maksimal Rp{MAX_TOPUP:,}.")
+
     try:
         nominal = int(input("Masukkan nominal uang (Rp): "))
-        koin = int(input("Masukkan jumlah koin yang didapat: "))
     except ValueError:
-        print("[ERROR] Nominal dan jumlah koin harus berupa angka.")
+        print("[ERROR] Nominal harus berupa angka.")
         return
 
-    if nominal <= 0 or koin <= 0:
-        print("[ERROR] Nominal dan jumlah koin harus lebih besar dari 0.")
+    if nominal < MIN_TOPUP:
+        print(f"[ERROR] Nominal top-up minimal Rp{MIN_TOPUP:,}.")
         return
+
+    if nominal > MAX_TOPUP:
+        print(f"[ERROR] Nominal top-up maksimal Rp{MAX_TOPUP:,}.")
+        return
+
+    if nominal % KELIPATAN_TOPUP != 0:
+        print(f"[ERROR] Nominal top-up harus kelipatan Rp{KELIPATAN_TOPUP:,}.")
+        return
+
+    koin = (nominal // KELIPATAN_TOPUP) * KOIN_PER_KELIPATAN
 
     try:
         with db_cursor() as (conn, cursor):
@@ -167,7 +188,7 @@ def request_withdrawal(author_id):
     try:
         with db_cursor() as (conn, cursor):
             cursor.execute(
-                "SELECT author_balance, role FROM user WHERE user_id = %s",
+                "SELECT author_balance FROM user WHERE user_id = %s",
                 (author_id,)
             )
             result = cursor.fetchone()
@@ -176,11 +197,7 @@ def request_withdrawal(author_id):
                 print("[INFO] User tidak ditemukan.")
                 return
 
-            author_balance, role = result
-
-            if role != 'author':
-                print("[FAILED] Hanya penulis yang bisa melakukan withdrawal.")
-                return
+            author_balance = result[0]
 
             if author_balance < jumlah:
                 print(f"[FAILED] Saldo tidak cukup. Saldo saat ini: {author_balance} koin.")
