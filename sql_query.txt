@@ -201,3 +201,20 @@ INSERT INTO transaction_topup (user_id, amount_paid, coins_gained) VALUES
 
 INSERT INTO purchase_chapter (user_id, chapter_id, coins_spent) VALUES
 (2, 2, 15);
+
+INSERT INTO withdrawal (user_id, amount, status, requested_at) VALUES
+(1, 5000, 'pending', NOW()),
+(2, 10000, 'approved', NOW() - INTERVAL 1 DAY),
+(1, 2000, 'rejected', NOW() - INTERVAL 2 DAY);
+
+
+INSERT INTO read_history (user_id, chapter_id, read_at) VALUES
+(2, 2, NOW()),
+(1, 1, NOW() - INTERVAL 1 HOUR),
+(1, 2, NOW() - INTERVAL 30 MINUTE);
+
+
+INSERT INTO bookmark (user_id, story_id, created_at) VALUES
+(2, 1, NOW()),
+(1, 2, NOW() - INTERVAL 1 DAY),
+(2, 3, NOW() - INTERVAL 2 HOUR);
