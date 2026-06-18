@@ -300,8 +300,3 @@ INSERT INTO read_history (user_id, chapter_id, read_at) VALUES
 (2, 2, NOW()),
 (1, 1, NOW() - INTERVAL 1 HOUR),
 (1, 2, NOW() - INTERVAL 30 MINUTE);
-
-INSERT INTO bookmark (user_id, story_id, created_at) VALUES
-(2, 1, NOW()),
-(1, 2, NOW() - INTERVAL 1 DAY),
-(2, 2, NOW() - INTERVAL 2 HOUR);
