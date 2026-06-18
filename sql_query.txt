@@ -1,4 +1,3 @@
-
 CREATE TABLE `user` (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) NOT NULL,
@@ -91,53 +90,6 @@ CREATE TABLE read_history (
     read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE,
     FOREIGN KEY (chapter_id) REFERENCES chapter(chapter_id) ON DELETE CASCADE
-);
-
-CREATE TABLE bookmark (
-    bookmark_id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT,
-    story_id INT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (story_id) REFERENCES story(story_id) ON DELETE CASCADE
-);
-
-CREATE TABLE library (
-    library_id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT,
-    story_id INT,
-    last_read_chapter_id INT NULL,
-    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (story_id) REFERENCES story(story_id) ON DELETE CASCADE,
-    FOREIGN KEY (last_read_chapter_id) REFERENCES chapter(chapter_id) ON DELETE SET NULL
-);
-
-CREATE TABLE votes (
-    vote_id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT,
-    chapter_id INT,
-    voted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY unique_vote (user_id, chapter_id),
-    FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (chapter_id) REFERENCES chapter(chapter_id) ON DELETE CASCADE
-);
-
-CREATE TABLE subscriptions (
-    sub_id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT,
-    expiry_date DATETIME NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE
-);
-
-CREATE TABLE contest_submissions (
-    submission_id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT,
-    story_id INT,
-    status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
-    submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE,
-    FOREIGN KEY (story_id) REFERENCES story(story_id) ON DELETE CASCADE
 );
 
 -- TRIGGER 
@@ -234,20 +186,6 @@ BEGIN
 END $
 
 DELIMITER ;
-
--- VIEW 
-CREATE VIEW author_dashboard AS
-SELECT
-    s.user_id AS author_id,
-    s.story_id,
-    s.title AS story_title,
-    COUNT(DISTINCT c.chapter_id) AS total_chapters,
-    COUNT(pc.purchase_id) AS total_chapters_sold,
-    COALESCE(SUM(pc.coins_spent), 0) AS total_revenue_coins
-FROM story s
-LEFT JOIN chapter c ON s.story_id = c.story_id
-LEFT JOIN purchase_chapter pc ON c.chapter_id = pc.chapter_id
-GROUP BY s.story_id;
 
 -- DATA DUMMY 
 INSERT INTO genres (genre_id, genre_name) VALUES
