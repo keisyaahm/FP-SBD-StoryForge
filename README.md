@@ -1,16 +1,27 @@
 # StoryForge - Platform Fiksi All-in-One (Final Project SBD)
 
+**Anggota Kelompok:**
+* Ni Putu Maqueenta Wijaya (5027251004)
+* Putri Permata Sabila (5027251047)
+* Keisya Halimah Mulia (5027251068)
+* Atik Putri Matulina (5027251128)
+
 StoryForge adalah platform penulisan dan pembacaan fiksi berbasis CLI (*Command Line Interface*). Proyek ini mengimplementasikan **Arsitektur Hybrid Database**, mengintegrasikan **MySQL** untuk integritas data transaksional yang ketat dan **MongoDB** untuk fleksibilitas skema konten naskah serta metadata karakter yang dinamis.
 
 ## Daftar Isi
-
-1. [Deskripsi Proyek](https://www.google.com/search?q=%231-deskripsi-proyek)
-2. [Arsitektur Sistem (Hybrid Database)](https://www.google.com/search?q=%232-arsitektur-sistem)
-3. [Struktur Direktori & Penjelasan Modul](https://www.google.com/search?q=%233-struktur-direktori--penjelasan-modul)
-4. [Alur Kerja Sistem (Flow)](https://www.google.com/search?q=%234-alur-kerja-sistem-flow)
-5. [Penanganan Kasus Ekstrem (Edge Cases)](https://www.google.com/search?q=%235-penanganan-kasus-ekstrem-edge-cases)
-6. [Panduan Instalasi & Setup](https://www.google.com/search?q=%236-panduan-instalasi--setup)
-
+1. [Deskripsi Proyek](#1-deskripsi-proyek)
+2. [Arsitektur Sistem (Hybrid Database)](#2-arsitektur-sistem)
+3. [Struktur Direktori & Penjelasan Modul](#3-struktur-direktori--penjelasan-modul)
+    * [main.py (Sistem Inti & Routing)](#mainpy-sistem-inti--routing)
+    * [db.py (Konfigurasi Jaringan)](#dbpy-konfigurasi-jaringan)
+    * [user.py (Modul Autentikasi & Keamanan)](#userpy-modul-autentikasi--keamanan)
+    * [story.py (Modul Manajemen Naskah Hibrida)](#storypy-modul-manajemen-naskah-hibrida)
+    * [character.py (Modul Manajemen Lore Dinamis)](#characterpy-modul-manajemen-lore-dinamis)
+    * [transaction.py (Modul Ekonomi Digital)](#transactionpy-modul-ekonomi-digital)
+    * [sinkron_dummy.py & query.sql (Inisialisasi Database)](#sinkron_dummypy--querysql-inisialisasi-database)
+4. [Alur Kerja Sistem (Flow)](#4-alur-kerja-sistem-flow)
+5. [Penanganan Kasus Ekstrem (Edge Cases)](#5-penanganan-kasus-ekstrem-edge-cases)
+6. [Panduan Instalasi & Setup](#6-panduan-instalasi--setup)
 ---
 
 ## 1. Deskripsi Proyek
