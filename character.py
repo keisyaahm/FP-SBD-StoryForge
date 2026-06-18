@@ -6,6 +6,35 @@ from db import get_mysql_connection, get_mongo_database
 db = get_mongo_database()
 character_collection = db["character_lores"]
 
+# ===== HELPER: VALIDASI KEPEMILIKAN CERITA =====
+def get_story_milik_user(user_id):
+    """Mengambil semua cerita milik user yang sedang login (untuk referensi pemilihan)."""
+    conn = get_mysql_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            "SELECT story_id, title, status FROM story WHERE user_id = %s ORDER BY story_id ASC",
+            (user_id,)
+        )
+        return cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
+
+def is_story_owner(story_id, user_id):
+    """Mengecek apakah story_id benar-benar milik user_id yang sedang login."""
+    conn = get_mysql_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "SELECT story_id FROM story WHERE story_id = %s AND user_id = %s",
+            (story_id, user_id)
+        )
+        return cursor.fetchone() is not None
+    finally:
+        cursor.close()
+        conn.close()
+
 # MENU UTAMA KARAKTER
 def menu_karakter(user_id):
     while True:
@@ -20,15 +49,15 @@ def menu_karakter(user_id):
         pilihan = input("Pilih menu: ")
 
         if pilihan == '1':
-            add_character()
+            add_character(user_id)
         elif pilihan == '2':
-            view_characters_by_story()
+            view_characters_by_story(user_id)
         elif pilihan == '3':
-            view_character_detail()
+            view_character_detail(user_id)
         elif pilihan == '4':
-            update_character()
+            update_character(user_id)
         elif pilihan == '5':
-            delete_character()
+            delete_character(user_id)
         elif pilihan == '6':
             count_character_per_story()
         elif pilihan == '0':
@@ -36,12 +65,35 @@ def menu_karakter(user_id):
         else:
             print("Pilihan tidak valid.")
 
-# TAMBAH KARAKTER (DIUBAH LOGIKA HYBRID)
-def add_character():
+# TAMBAH KARAKTER (DIUBAH LOGIKA HYBRID + VALIDASI KEPEMILIKAN)
+def add_character(user_id):
     print("\n=== Tambah Karakter ===")
-    
-    story_id = int(input("Story ID : "))
+
+    # Tampilkan cerita milik sendiri sebagai referensi, supaya tidak asal input Story ID
+    daftar_cerita = get_story_milik_user(user_id)
+    if not daftar_cerita:
+        print("Belum ada draft cerita.")
+        return
+
+    print("\n--- CERITA MILIKMU ---")
+    for s in daftar_cerita:
+        print(f"[{s['story_id']}] {s['title']} ({s['status'].upper()})")
+
+    try:
+        story_id = int(input("\nStory ID : "))
+    except ValueError:
+        print("Story ID harus berupa angka.")
+        return
+
+    # VALIDASI KEPEMILIKAN: hanya boleh menambah karakter pada cerita milik sendiri
+    if not is_story_owner(story_id, user_id):
+        print("Akses Ditolak: Cerita tidak ditemukan atau bukan milikmu.")
+        return
+
     character_name = input("Nama Karakter : ")
+    if not character_name.strip():
+        print("Nama karakter tidak boleh kosong.")
+        return
 
     # PERUBAHAN: Masukkan ke MySQL terlebih dahulu
     conn = get_mysql_connection()
@@ -84,10 +136,19 @@ def add_character():
     character_collection.insert_one(character_data)
     print("Karakter berhasil ditambahkan ke keseluruhan sistem (Hybrid).")
 
-# LIHAT SEMUA KARAKTER DARI STORY
-def view_characters_by_story():
+# LIHAT SEMUA KARAKTER DARI STORY (HANYA MILIK SENDIRI)
+def view_characters_by_story(user_id):
     print("\n=== Daftar Karakter Story ===")
-    story_id = int(input("Story ID : "))
+    try:
+        story_id = int(input("Story ID : "))
+    except ValueError:
+        print("Story ID harus berupa angka.")
+        return
+
+    # VALIDASI KEPEMILIKAN: hanya boleh melihat/kelola karakter cerita milik sendiri
+    if not is_story_owner(story_id, user_id):
+        print("Akses Ditolak: Cerita tidak ditemukan atau bukan milikmu.")
+        return
 
     characters = character_collection.find({
         "story_id": story_id
@@ -107,10 +168,14 @@ def view_characters_by_story():
     if not found:
         print("Tidak ada karakter untuk cerita ini.")
 
-# DETAIL KARAKTER
-def view_character_detail():
+# DETAIL KARAKTER (HANYA MILIK SENDIRI)
+def view_character_detail(user_id):
     print("\n=== Detail Karakter ===")
-    character_id = int(input("Character ID : "))
+    try:
+        character_id = int(input("Character ID : "))
+    except ValueError:
+        print("Character ID harus berupa angka.")
+        return
 
     char = character_collection.find_one({
         "character_id": character_id
@@ -120,15 +185,24 @@ def view_character_detail():
         print("Karakter tidak ditemukan.")
         return
 
+    # VALIDASI KEPEMILIKAN: hanya boleh melihat detail karakter cerita milik sendiri
+    if not is_story_owner(char["story_id"], user_id):
+        print("Akses Ditolak: Karakter ini bukan bagian dari cerita milikmu.")
+        return
+
     print()
     for key, value in char.items():
         if key != "_id":
             print(f"{key.title()} : {value}")
 
-# EDIT ATRIBUT KARAKTER (SINKRONISASI HYBRID)
-def update_character():
+# EDIT ATRIBUT KARAKTER (SINKRONISASI HYBRID + VALIDASI KEPEMILIKAN)
+def update_character(user_id):
     print("\n=== Edit Karakter ===")
-    character_id = int(input("Character ID : "))
+    try:
+        character_id = int(input("Character ID : "))
+    except ValueError:
+        print("Character ID harus berupa angka.")
+        return
 
     char = character_collection.find_one({
         "character_id": character_id
@@ -136,6 +210,11 @@ def update_character():
 
     if not char:
         print("Karakter tidak ditemukan.")
+        return
+
+    # VALIDASI KEPEMILIKAN: hanya boleh mengedit karakter cerita milik sendiri
+    if not is_story_owner(char["story_id"], user_id):
+        print("Akses Ditolak: Karakter ini bukan bagian dari cerita milikmu.")
         return
 
     field = input("Field yang ingin diubah (contoh: character_name / Hobi) : ")
@@ -169,10 +248,27 @@ def update_character():
     else:
         print("Tidak ada perubahan (nilai yang Anda masukkan sama dengan sebelumnya).")
 
-# HAPUS KARAKTER (DIUBAH LOGIKA HYBRID)
-def delete_character():
+# HAPUS KARAKTER (DIUBAH LOGIKA HYBRID + VALIDASI KEPEMILIKAN)
+def delete_character(user_id):
     print("\n=== Hapus Karakter ===")
-    character_id = int(input("Character ID : "))
+    try:
+        character_id = int(input("Character ID : "))
+    except ValueError:
+        print("Character ID harus berupa angka.")
+        return
+
+    char = character_collection.find_one({
+        "character_id": character_id
+    })
+
+    if not char:
+        print("Karakter tidak ditemukan.")
+        return
+
+    # VALIDASI KEPEMILIKAN: hanya boleh menghapus karakter cerita milik sendiri
+    if not is_story_owner(char["story_id"], user_id):
+        print("Akses Ditolak: Karakter ini bukan bagian dari cerita milikmu.")
+        return
 
     # PERUBAHAN: Hapus data dari MySQL
     conn = get_mysql_connection()

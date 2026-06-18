@@ -53,13 +53,32 @@ def buat_story(user_id):
 def buat_chapter(user_id):
     print("\n=== STUDIO: TAMBAH BAB BARU (HYBRID) ===")
     print("(Ketik '0' pada ID Cerita untuk membatalkan)")
-    story_id = input("Masukkan ID Cerita milikmu: ")
+
+    # Tampilkan draft cerita milik sendiri sebagai referensi (FIX: jangan sampai error/keluar program kalau belum ada draft)
+    conn = get_mysql_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            "SELECT story_id, title FROM story WHERE user_id = %s AND status = 'draft' ORDER BY story_id ASC",
+            (user_id,)
+        )
+        draft_stories = cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
+
+    if not draft_stories:
+        print("Belum ada draft cerita.")
+    else:
+        print("\n--- DRAFT CERITA MILIKMU ---")
+        for s in draft_stories:
+            print(f"[{s['story_id']}] {s['title']}")
+
+    story_id = input("\nMasukkan ID Cerita milikmu: ")
     
     if story_id == '0':
         print("Dibatalkan. Kembali ke menu utama.")
         return
-    
-    
     
     conn = get_mysql_connection()
     cursor = conn.cursor()
@@ -71,18 +90,73 @@ def buat_chapter(user_id):
         
         if not cek_milik:
             print("Akses Ditolak: Cerita tidak ditemukan atau Anda bukan penulis cerita ini.")
-            cursor.close()
-            conn.close()
             return
-            
-        chapter_num = input("Bab Ke-Berapa: ")
+
+        # VALIDASI NOMOR BAB: harus berurutan, bab baru = bab terakhir + 1, tidak boleh sama/asal angka
+        cursor.execute("SELECT MAX(chapter_number) FROM chapter WHERE story_id = %s", (story_id,))
+        hasil_max = cursor.fetchone()
+        nomor_terakhir = hasil_max[0] if hasil_max and hasil_max[0] is not None else 0
+        nomor_seharusnya = nomor_terakhir + 1
+
+        chapter_num_input = input(f"Bab Ke-Berapa (bab selanjutnya wajib Bab {nomor_seharusnya}): ")
+        try:
+            chapter_num = int(chapter_num_input)
+        except ValueError:
+            print("Nomor bab harus berupa angka.")
+            return
+
+        if chapter_num != nomor_seharusnya:
+            print(f"Nomor bab tidak valid! Bab baru harus berurutan dan tidak boleh sama dengan bab lain. "
+                  f"Nomor yang diizinkan sekarang hanya Bab {nomor_seharusnya} (bab terakhir + 1).")
+            return
+
         chapter_title = input("Judul Bab: ")
-        is_premium = input("Berbayar? (1 untuk Ya, 0 untuk Tidak): ")
-        coin_cost = input("Harga Koin (0 jika gratis): ")
+
+        # VALIDASI BERBAYAR/GRATIS: kalau gratis, tidak perlu masuk opsi harga
+        is_premium_input = input("Berbayar? (1 untuk Ya, 0 untuk Tidak): ").strip()
+        if is_premium_input == '1':
+            is_premium = 1
+            while True:
+                coin_cost_input = input("Harga Koin (lebih dari 0): ").strip()
+                try:
+                    coin_cost = int(coin_cost_input)
+                except ValueError:
+                    print("Harga koin harus berupa angka.")
+                    continue
+                if coin_cost <= 0:
+                    print("Harga koin untuk bab berbayar harus lebih dari 0.")
+                    continue
+                break
+        else:
+            is_premium = 0
+            coin_cost = 0  # Tidak berbayar -> otomatis 0, tanpa ditanya harga
+
         status_input = input("Langsung Publish atau Simpan Draft? (p/d): ").lower()
-        
         status_db = 'published' if status_input == 'p' else 'draft'
-        isi_teks = input("Ketik isi paragraf cerita di sini:\n")
+
+        # PENULISAN ISI BAB: boleh lebih dari satu paragraf
+        print("\nKetik isi paragraf cerita. Ketik 'selesai' (tanpa tanda kutip) pada baris baru jika sudah selesai menulis.")
+        paragraf_list = []
+        urutan = 1
+        while True:
+            teks = input(f"Paragraf {urutan} (atau ketik 'selesai' untuk berhenti): ")
+
+            if teks.strip().lower() == 'selesai':
+                if not paragraf_list:
+                    print("Minimal harus ada satu paragraf sebelum mengakhiri penulisan.")
+                    continue
+                break
+
+            if teks.strip() == '':
+                print("Paragraf tidak boleh kosong.")
+                continue
+
+            paragraf_list.append({
+                "urutan_paragraf": urutan,
+                "teks": teks,
+                "komentar_inline": []
+            })
+            urutan += 1
         
         sql_mysql = """INSERT INTO chapter (story_id, chapter_number, chapter_title, is_premium, coin_cost, status) 
                        VALUES (%s, %s, %s, %s, %s, %s)"""
@@ -100,13 +174,7 @@ def buat_chapter(user_id):
         
         dokumen_mongodb = {
             "chapter_id": new_chapter_id,
-            "paragraf": [
-                {
-                    "urutan_paragraf": 1,
-                    "teks": isi_teks,
-                    "komentar_inline": []
-                }
-            ]
+            "paragraf": paragraf_list
         }
         chapters_content.insert_one(dokumen_mongodb)
         print(f"Bab berhasil ditambahkan dengan status [{status_db.upper()}]!")
@@ -227,7 +295,29 @@ def lihat_story_ku(user_id):
 
 def publish_story(user_id):
     print("\n=== PUBLISH CERITA ===")
-    story_id = input("Masukkan ID Cerita yang ingin dipublikasikan: ")
+
+    # Tampilkan daftar draft cerita milik sendiri (FIX: jangan error/keluar program kalau belum ada draft)
+    conn = get_mysql_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            "SELECT story_id, title FROM story WHERE user_id = %s AND status = 'draft' ORDER BY story_id ASC",
+            (user_id,)
+        )
+        draft_stories = cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
+
+    if not draft_stories:
+        print("Belum ada draft cerita.")
+        return
+
+    print("\n--- DRAFT CERITA MILIKMU ---")
+    for s in draft_stories:
+        print(f"[{s['story_id']}] {s['title']}")
+
+    story_id = input("\nMasukkan ID Cerita yang ingin dipublikasikan (0 untuk batal): ")
     if story_id == '0':
         print("Dibatalkan.")
         return
