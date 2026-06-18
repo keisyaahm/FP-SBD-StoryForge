@@ -1,7 +1,4 @@
-CREATE DATABASE fiction_platform;
-USE fiction_platform;
 
--- TABEL UTAMA
 CREATE TABLE `user` (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) NOT NULL,
@@ -46,7 +43,6 @@ CREATE TABLE `character` (
     FOREIGN KEY (story_id) REFERENCES story(story_id) ON DELETE CASCADE
 );
 
--- TABEL TRANSAKSI KEUANGAN
 CREATE TABLE purchase_chapter (
     purchase_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT,
@@ -55,16 +51,6 @@ CREATE TABLE purchase_chapter (
     purchase_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE,
     FOREIGN KEY (chapter_id) REFERENCES chapter(chapter_id) ON DELETE CASCADE
-);
-
-CREATE TABLE withdrawal (
-    withdrawal_id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT,
-    amount INT NOT NULL,
-    status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
-    balance_deducted BOOLEAN DEFAULT FALSE, -- TMBHN KEISYA: Kolom pengaman saldo
-    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE
 );
 
 CREATE TABLE transaction_topup (
@@ -76,7 +62,28 @@ CREATE TABLE transaction_topup (
     FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE
 );
 
--- TABEL INTERAKSI PEMBACA
+CREATE TABLE withdrawal (
+    withdrawal_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    amount INT NOT NULL,
+    status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES `user`(user_id) ON DELETE CASCADE
+);
+
+CREATE TABLE transaction_history (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    type ENUM('purchase', 'withdrawal', 'top_up') NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    description VARCHAR(255) DEFAULT NULL,
+    reference_id INT DEFAULT NULL,
+    reference_table VARCHAR(50) DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES user(user_id) ON DELETE CASCADE
+);
+
+-- INTERAKSI PEMBACA 
 CREATE TABLE read_history (
     history_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT,
@@ -133,47 +140,104 @@ CREATE TABLE contest_submissions (
     FOREIGN KEY (story_id) REFERENCES story(story_id) ON DELETE CASCADE
 );
 
-DELIMITER $$
+-- TRIGGER 
+DELIMITER $
 
+-- 1. TRIGGER SAAT PEMBELIAN CHAPTER (tetap, sama)
 CREATE TRIGGER after_purchase_chapter_insert
 AFTER INSERT ON purchase_chapter
 FOR EACH ROW
 BEGIN
-    UPDATE `user` 
-    SET coin_balance = coin_balance - NEW.coins_spent 
+    UPDATE `user`
+    SET coin_balance = coin_balance - NEW.coins_spent
     WHERE user_id = NEW.user_id;
 
-    UPDATE `user` 
-    SET author_balance = author_balance + NEW.coins_spent 
+    UPDATE `user`
+    SET author_balance = author_balance + NEW.coins_spent
     WHERE user_id = (
-        SELECT s.user_id 
-        FROM story s 
-        JOIN chapter c ON s.story_id = c.story_id 
-        WHERE c.chapter_id = NEW.chapter_id
+        SELECT s.user_id FROM story s JOIN chapter c ON s.story_id = c.story_id WHERE c.chapter_id = NEW.chapter_id
     );
-END $$
 
--- TMBHN KEISYA BUAT MOTONG SALDO AUTHOR (VERSI AMAN)
-CREATE TRIGGER before_withdrawal_update
-BEFORE UPDATE ON withdrawal
+    -- Catat ke transaction_history
+    INSERT INTO transaction_history (user_id, type, amount, description, reference_id, reference_table)
+    VALUES (NEW.user_id, 'purchase', NEW.coins_spent, CONCAT('Buy chapter #', NEW.chapter_id), NEW.purchase_id, 'purchase_chapter');
+END $
+
+-- 2. TRIGGER SAAT TOP-UP (otomatis catat history)
+CREATE TRIGGER after_topup_insert
+AFTER INSERT ON transaction_topup
 FOR EACH ROW
 BEGIN
-    -- Jika admin mengubah status menjadi 'approved' dan belum pernah dipotong
-    IF NEW.status = 'approved' AND OLD.status != 'approved' AND OLD.balance_deducted = FALSE THEN
-        -- Potong saldo koin penulis di tabel user
-        UPDATE `user` 
-        SET author_balance = author_balance - NEW.amount 
-        WHERE user_id = NEW.user_id;
-        
-        -- Tandai agar tidak dipotong dua kali
-        SET NEW.balance_deducted = TRUE;
-    END IF;
-END $$
+    INSERT INTO transaction_history (user_id, type, amount, description, reference_id, reference_table)
+    VALUES (NEW.user_id, 'top_up', NEW.coins_gained, CONCAT('Top-up Rp', NEW.amount_paid), NEW.topup_id, 'transaction_topup');
+END $
 
 DELIMITER ;
 
+-- STORED PROCEDURE 
+DELIMITER $
+
+-- 3. APPROVE WITHDRAWAL (validasi + potong saldo + catat history)
+CREATE PROCEDURE approve_withdrawal(IN p_withdrawal_id INT)
+BEGIN
+    DECLARE v_user_id INT;
+    DECLARE v_amount INT;
+    DECLARE v_status VARCHAR(20);
+    DECLARE v_balance DECIMAL(10,2);
+
+    -- Ambil data withdrawal
+    SELECT user_id, amount, status INTO v_user_id, v_amount, v_status
+    FROM withdrawal WHERE withdrawal_id = p_withdrawal_id;
+
+    IF v_user_id IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Withdrawal tidak ditemukan';
+    END IF;
+
+    IF v_status != 'pending' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Withdrawal sudah diproses sebelumnya';
+    END IF;
+
+    -- Cek saldo author
+    SELECT author_balance INTO v_balance FROM user WHERE user_id = v_user_id;
+    IF v_balance < v_amount THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Saldo author tidak mencukupi';
+    END IF;
+
+    -- Update status & potong saldo
+    UPDATE withdrawal SET status = 'approved' WHERE withdrawal_id = p_withdrawal_id;
+    UPDATE user SET author_balance = author_balance - v_amount WHERE user_id = v_user_id;
+
+    -- Catat history
+    INSERT INTO transaction_history (user_id, type, amount, description, reference_id, reference_table)
+    VALUES (v_user_id, 'withdrawal', v_amount, CONCAT('Withdrawal approved'), p_withdrawal_id, 'withdrawal');
+END $
+
+-- 4. REJECT WITHDRAWAL (tidak potong saldo, tetap catat history)
+CREATE PROCEDURE reject_withdrawal(IN p_withdrawal_id INT)
+BEGIN
+    DECLARE v_status VARCHAR(20);
+
+    SELECT status INTO v_status FROM withdrawal WHERE withdrawal_id = p_withdrawal_id;
+
+    IF v_status IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Withdrawal tidak ditemukan';
+    END IF;
+
+    IF v_status != 'pending' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Withdrawal sudah diproses sebelumnya';
+    END IF;
+
+    UPDATE withdrawal SET status = 'rejected' WHERE withdrawal_id = p_withdrawal_id;
+
+    INSERT INTO transaction_history (user_id, type, amount, description, reference_id, reference_table)
+    VALUES ((SELECT user_id FROM withdrawal WHERE withdrawal_id = p_withdrawal_id), 'withdrawal', 0, CONCAT('Withdrawal rejected'), p_withdrawal_id, 'withdrawal');
+END $
+
+DELIMITER ;
+
+-- VIEW 
 CREATE VIEW author_dashboard AS
-SELECT 
+SELECT
     s.user_id AS author_id,
     s.story_id,
     s.title AS story_title,
@@ -185,7 +249,7 @@ LEFT JOIN chapter c ON s.story_id = c.story_id
 LEFT JOIN purchase_chapter pc ON c.chapter_id = pc.chapter_id
 GROUP BY s.story_id;
 
--- DATA DUMMY
+-- DATA DUMMY 
 INSERT INTO genres (genre_id, genre_name) VALUES
 (1, 'Action and Thriller'),
 (2, 'Culture and Identity'),
@@ -212,14 +276,13 @@ INSERT INTO chapter (story_id, chapter_number, chapter_title, is_premium, coin_c
 (1, 2, 'Pengkhianatan', TRUE, 15, 'published'),
 (2, 1, 'Awal Perjalanan', FALSE, 0, 'published');
 
--- TMBAHAN DR KEISYA, BUAT NGEHUBUNGIN KE MONGO
-INSERT INTO `character` (character_id, story_id, character_name) VALUES
-(1, 1, 'biru laut'),
-(2, 1, 'asmara jati'),
-(3, 1, 'kinan'),
-(4, 1, 'alex'),
-(5, 1, 'gusti'),
-(6, 1, 'anjani');
+INSERT INTO `character` (story_id, character_name) VALUES
+(1, 'biru laut'),
+(1, 'asmara jati'),
+(1, 'kinan'),
+(1, 'alex'),
+(1, 'gusti'),
+(1, 'anjani');
 
 INSERT INTO transaction_topup (user_id, amount_paid, coins_gained) VALUES
 (2, 100000, 1000);
@@ -227,10 +290,11 @@ INSERT INTO transaction_topup (user_id, amount_paid, coins_gained) VALUES
 INSERT INTO purchase_chapter (user_id, chapter_id, coins_spent) VALUES
 (2, 2, 15);
 
+-- DATA DUMMY WITHDRAWAL (author_balance user 1 = 500, jadi amount WAJIB ≤ 500)
 INSERT INTO withdrawal (user_id, amount, status, requested_at) VALUES
-(1, 5000, 'pending', NOW()),
-(1, 10000, 'approved', NOW() - INTERVAL 1 DAY),
-(1, 2000, 'rejected', NOW() - INTERVAL 2 DAY);
+(1, 200, 'pending', NOW()),
+(1, 100, 'approved', NOW() - INTERVAL 1 DAY),
+(1, 50,  'rejected', NOW() - INTERVAL 2 DAY);
 
 INSERT INTO read_history (user_id, chapter_id, read_at) VALUES
 (2, 2, NOW()),
