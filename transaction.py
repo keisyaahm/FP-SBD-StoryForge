@@ -170,6 +170,14 @@ def request_withdrawal(author_id):
             "INSERT INTO withdrawal (user_id, amount, status) VALUES (%s, %s, 'pending')",
             (author_id, jumlah)
         )
+        cursor.execute(
+            """
+            UPDATE user
+            SET author_balance = author_balance - %s
+            WHERE user_id = %s
+            """,
+            (jumlah, author_id)
+        )
         conn.commit()
         
         nominal_rupiah = jumlah * 500
